@@ -14,3 +14,7 @@ draft `RETURN` block for a human to finish.
 This project follows the spec-driven workflow from
 [jeedo/spec-template](https://github.com/jeedo/spec-template); see
 [CLAUDE.md](CLAUDE.md).
+
+## License
+
+GPL-3.0-or-later — see [LICENSE](LICENSE). dr-ansible imports ansible-core, which is GPLv3.

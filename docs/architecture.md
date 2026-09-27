@@ -31,7 +31,7 @@ reading the module, its action plugin and its tests to discover the keys.
 | Packaging | PEP 621 `pyproject.toml`, `hatchling` backend, `src/` layout | Standard, works with uv and plain pip (NFR-2) |
 | Env / deps | `uv` with committed `uv.lock`; dev tools in `[dependency-groups]` | Reproducible; project convention in `CLAUDE.md` |
 | CLI | `argparse` (stdlib) | No extra dependency for three subcommands (NFR-3) |
-| Doc parsing | `ansible-core` → `ansible.parsing.plugin_docs.read_docstring` | Reuse Ansible's own parser for `.py` and sidecar `.yml` docs |
+| Doc parsing | `ansible-core>=2.21.4` (latest release; exact version pinned in `uv.lock`) → `ansible.parsing.plugin_docs.read_docstring` | Reuse Ansible's own parser for `.py` and sidecar `.yml` docs. The installed release is a library only; the ansible-core checkout being audited is read as data and never imported |
 | Source analysis | `ast` (stdlib) | Never import or execute analysed code (FR-8) |
 | Test YAML | `PyYAML` (`safe_load`) | Read integration target tasks (FR-13) |
 | Config | `tomllib` (stdlib) | `dr-ansible.toml` or `[tool.dr-ansible]` (NFR-9) |
@@ -184,7 +184,8 @@ Testing strategy:
   (one per pattern listed in the requirements, plus a module that raises on
   import for AC-10).
 - **Acceptance tests** (`pytest -m acceptance`) against a pinned ansible-core
-  devel checkout fetched into a cache directory; AC-8 (validate-modules) and
+  devel checkout fetched into a cache directory (audited as data; the tool itself
+  runs on the released ansible-core from PyPI); AC-8 (validate-modules) and
   AC-11 (`--run` on `ping`, needs Docker) are marked separately so default CI
   stays fast.
 
