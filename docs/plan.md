@@ -2,7 +2,7 @@
 
 > Generated from [Architecture](architecture.md)
 > **Last Updated**: 2026-09-27
-> **Status**: Draft — awaiting approval
+> **Status**: Approved
 
 Requirement IDs (FR/NFR/AC) refer to [requirements.md](requirements.md).
 

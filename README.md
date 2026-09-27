@@ -8,7 +8,7 @@ draft `RETURN` block for a human to finish.
 
 - [Requirements](docs/requirements.md)
 - [Architecture](docs/architecture.md) (approved)
-- [Implementation plan](docs/plan.md) (draft)
+- [Implementation plan](docs/plan.md) (approved)
 - [Research notes](docs/research.md)
 
 This project follows the spec-driven workflow from
