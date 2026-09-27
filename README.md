@@ -7,8 +7,8 @@ draft `RETURN` block for a human to finish.
 > **Status**: design phase — no code yet. See the docs below.
 
 - [Requirements](docs/requirements.md)
-- [Architecture](docs/architecture.md) (draft)
-- [Implementation plan](docs/plan.md) (generated once the architecture is approved)
+- [Architecture](docs/architecture.md) (approved)
+- [Implementation plan](docs/plan.md) (draft)
 - [Research notes](docs/research.md)
 
 This project follows the spec-driven workflow from

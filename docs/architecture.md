@@ -1,6 +1,6 @@
 # Architecture: dr-ansible
 
-> **Status**: Draft — awaiting approval
+> **Status**: Approved
 > **Last Updated**: 2026-09-27
 > **Requirements**: [docs/requirements.md](requirements.md) (snapshot of the [live requirements doc](https://claude.ai/artifact/AkibAyLQKPCs8qEddtGwgB))
 
@@ -28,9 +28,9 @@ reading the module, its action plugin and its tests to discover the keys.
 | Layer | Technology | Rationale |
 |-------|-----------|-----------|
 | Language | Python ≥ 3.13, fully type-hinted | Matches ansible-core devel (NFR-1); `.python-version` pins 3.13 for uv |
-| Packaging | PEP 621 `pyproject.toml`, `hatchling` backend, `src/` layout | Standard, works with uv and plain pip (NFR-2) |
+| Packaging | PEP 621 `pyproject.toml`, `uv_build` backend, `src/` layout | uv's own PEP 517 backend; still builds and installs with plain pip (NFR-2). Bundles the callback plugin as package data |
 | Env / deps | `uv` with committed `uv.lock`; dev tools in `[dependency-groups]` | Reproducible; project convention in `CLAUDE.md` |
-| CLI | `argparse` (stdlib) | No extra dependency for three subcommands (NFR-3) |
+| CLI | `click` | Declarative subcommands, options and help; `CliRunner` for CLI tests. BSD-3-Clause, GPLv3-compatible (NFR-4) |
 | Doc parsing | `ansible-core>=2.21.4` (latest release; exact version pinned in `uv.lock`) → `ansible.parsing.plugin_docs.read_docstring` | Reuse Ansible's own parser for `.py` and sidecar `.yml` docs. The installed release is a library only; the ansible-core checkout being audited is read as data and never imported |
 | Source analysis | `ast` (stdlib) | Never import or execute analysed code (FR-8) |
 | Test YAML | `PyYAML` (`safe_load`) | Read integration target tasks (FR-13) |
@@ -74,7 +74,7 @@ without stopping the others (NFR-8).
 
 Package layout (`src/dr_ansible/`):
 
-- **`cli.py`** — `argparse` entry point for `audit`, `returns` and `draft`;
+- **`cli.py`** — `click` group with `audit`, `returns` and `draft` subcommands;
   maps outcomes to exit codes `0` (clean), `1` (findings), `2` (usage/parse error).
 - **`config.py`** — loads `dr-ansible.toml`, else `[tool.dr-ansible]` in the target's
   `pyproject.toml`, over built-in defaults: exempt allowlist (AC-3 list),
@@ -188,6 +188,18 @@ Testing strategy:
   runs on the released ansible-core from PyPI); AC-8 (validate-modules) and
   AC-11 (`--run` on `ping`, needs Docker) are marked separately so default CI
   stays fast.
+
+## Decisions Beyond the Requirements
+
+Agreed during architecture review (2026-09-27); these refine or replace details
+in the requirements snapshot:
+
+- **License**: GPL-3.0-or-later (replaces the repo's initial Apache-2.0 file).
+- **ansible-core**: depend on the latest release from PyPI (2.21.4), not the
+  devel checkout; audited checkouts are data only.
+- **CLI framework**: `click` (an extra runtime dependency beyond NFR-3's list).
+  Click already exits with `2` on usage errors, matching the exit-code contract.
+- **Build backend**: `uv_build` (the requirements suggested `hatchling` as an example).
 
 ## Research & References
 

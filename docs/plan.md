@@ -1,24 +1,59 @@
 # Implementation Plan
 
 > Generated from [Architecture](architecture.md)
-> **Last Updated**:
+> **Last Updated**: 2026-09-27
+> **Status**: Draft — awaiting approval
+
+Requirement IDs (FR/NFR/AC) refer to [requirements.md](requirements.md).
 
 ## Phase 1: Setup & Scaffolding
 
-- [ ] 1.
+- [ ] 1. Initialise the package with uv: `pyproject.toml` (PEP 621, `uv_build` backend, `requires-python = ">=3.13"`, GPL-3.0-or-later), `src/dr_ansible/` layout, `.python-version` (3.13), `dr-ansible` console script pointing at a stub `click` group; commit `uv.lock` (NFR-1, NFR-2)
+- [ ] 2. Add dependencies with `uv add`: `ansible-core>=2.21.4`, `PyYAML`, `click`; optional extra `rich`; dev group `pytest`, `ruff`, `mypy` (strict), `jsonschema`, `types-PyYAML` (NFR-3)
+- [ ] 3. Configure ruff, mypy and pytest (markers `acceptance` and `runtime`) in `pyproject.toml`; anchor `.gitignore`'s `lib/` to `/lib/` so fixture trees are tracked
+- [ ] 4. Update CI (`.github/workflows/ci.yml`) to Python 3.13 and `uv sync`; run ruff, ruff format check, mypy and unit tests on push and PR
+- [ ] 5. Define the core dataclasses in `model.py` (`ModuleInfo`, `DocResult`, `DocumentedKey`, `StaticKey`, `Unresolved`, `Observation`, `KeyReport`, `ModuleReport`)
+- [ ] 6. Build the synthetic test fixtures: an ansible-core-style tree and a collection with `galaxy.yml`, covering incremental `exit_json(**result)`, keyword `exit_json`, helper returning a dict, virtual module + action plugin, hybrid `_execute_module` action plugin, dynamic key, sidecar `.yml`, a `.ps1` module, and a module that raises on import
 
 ## Phase 2: Core Domain
 
-- [ ] 2.
+- [ ] 7. `config.py`: load `dr-ansible.toml` or `[tool.dr-ansible]` over built-in defaults (exempt allowlist, common return keys, redaction patterns, Docker image) (NFR-9, FR-6, FR-18)
+- [ ] 8. `discovery.py`: detect ansible-core vs collection layout and read namespace/name for FQCNs; list `.py` modules (skip `__init__.py`) and `.ps1` as `unsupported`; pair sidecar, action plugin and integration target (FR-1, FR-2)
+- [ ] 9. `discovery.py`: resolve names, aliases and redirects from `ansible_builtin_runtime.yml` / `meta/runtime.yml`; `--module` name/glob filtering; deterministic sort (FR-3, FR-4, NFR-6)
+- [ ] 10. `docs_audit.py`: `ast` check for a `RETURN` assignment or sidecar key plus `read_docstring` parsing; classify `missing` / `placeholder` / `invalid` / `present` / `exempt`; verify how `read_docstring` treats placeholders (FR-5, FR-6)
+- [ ] 11. `docs_audit.py`: required-field checks and flattening of documented keys, including nested `contains`, into dotted paths (FR-7)
+- [ ] 12. `static/infer.py`: type inference from AST values (literals, bools, f-strings, lists with element types, dicts with nested keys, unknown) and enclosing-condition capture (FR-11)
+- [ ] 13. `static/module_analyzer.py`: `exit_json` keyword keys and `**name` tracing through dict literals, `dict(...)`, subscript assignment, `.update()` and `.setdefault()` within a function (FR-8, FR-9)
+- [ ] 14. `static/module_analyzer.py`: one-level local helper resolution, failure-only keys from `fail_json`, and `unresolved` reporting for dynamic keys (FR-9, FR-12)
+- [ ] 15. `static/action_analyzer.py`: analyse `ActionModule.run()` (`result[k] = ...`, `.update()`, `return dict(...)`) and detect `_execute_module` inheritance, including delegation to another action plugin (FR-10, AC-7)
+- [ ] 16. `mining/static_miner.py`: parse integration target YAML, match tasks by any module name, track `register:` variables, extract `<var>.<key>` / `<var>['<key>']` from `assert`/`that`, `when`, `failed_when` and `debug` (FR-13, AC-5)
+- [ ] 17. `mining/redact.py`: drop `no_log` values and values of keys matching redaction patterns; truncate long strings (FR-16, AC-12)
+- [ ] 18. `reconcile.py`: merge documented, static and observed evidence per key into `ok` / `undocumented` / `stale` / `test-only`; exclude common keys unless requested (FR-15, FR-17, FR-18)
+- [ ] 19. `draft.py`: deterministic YAML emitter for the full skeleton with `DR-ANSIBLE-TODO` descriptions, inferred `returned` / `type` / `elements` / `contains` / `sample`, and evidence comments (FR-19, FR-21)
+- [ ] 20. `draft.py`: merge mode that copies existing `RETURN` text byte for byte and appends only missing top-level keys, listing missing nested keys as comments (FR-20, AC-9)
 
 ## Phase 3: API / Interface
 
-- [ ] 3.
+- [ ] 21. `report/`: table output (rich if installed, plain-text fallback), markdown output, and JSON output with `schema_version`
+- [ ] 22. Write `schema/report.schema.json` and validate JSON output against it in tests
+- [ ] 23. `cli.py`: `audit` command with `--module`, `--status`, `--format`, and exit codes 0/1/2; per-module failures reported as `error` without stopping the run (NFR-8)
+- [ ] 24. `cli.py`: `returns` command with `--include-common` and `--format`
+- [ ] 25. `cli.py`: `draft` command with `--merge` (default), `--full` and `--output <file>` (NFR-5)
+- [ ] 26. `mining/callback/dr_ansible_recorder.py`: callback plugin recording keys, types, result state and truncated values for the module under test, skipping `no_log` results (FR-14)
+- [ ] 27. `mining/runtime.py` and `--run` / `--docker` / `--local` on `returns` and `draft`: run `ansible-test integration` via subprocess with the callback enabled and merge observations (FR-14, NFR-5)
 
 ## Phase 4: Testing & QA
 
-- [ ] 4.
+- [ ] 28. Safety test: audit the raise-on-import fixture and assert nothing is imported or executed without `--run` (AC-10)
+- [ ] 29. Acceptance harness: fetch a pinned ansible-core devel checkout into a cache directory; tests marked `acceptance`
+- [ ] 30. Acceptance tests for `audit`: AC-1 missing list, AC-2 placeholder list, AC-3 exempt list
+- [ ] 31. Acceptance tests for `returns`: `fetch` keys and line numbers (AC-4), `fetch` test mining (AC-5), `stat` nested keys (AC-6), `copy` inheritance (AC-7)
+- [ ] 32. Acceptance test for drafts: paste each AC-1 draft into the checkout and run `ansible-test sanity --test validate-modules` (AC-8)
+- [ ] 33. Runtime acceptance test (marked `runtime`, needs Docker): `--run` on `ping` records `ping` as `str` with sample `pong` (AC-11); redaction check (AC-12)
+- [ ] 34. Performance check: full static `audit` of ansible-core in under 10 seconds (NFR-7); determinism check that two runs produce identical output (NFR-6)
 
 ## Phase 5: CI/CD & Deployment
 
-- [ ] 5.
+- [ ] 35. Add a CI job for acceptance tests (cached ansible-core checkout, validate-modules) and a manual/scheduled job for runtime tests
+- [ ] 36. Verify install paths: `uv tool install git+…`, `uvx --from git+…`, `pip install -e .` and `pipx install git+…` (NFR-2)
+- [ ] 37. Write user documentation in `README.md`: install, commands, configuration, exit codes, and using `audit` as a CI gate
