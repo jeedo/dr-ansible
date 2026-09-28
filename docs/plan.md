@@ -1,7 +1,7 @@
 # Implementation Plan
 
 > Generated from [Architecture](architecture.md)
-> **Last Updated**: 2026-09-27
+> **Last Updated**: 2026-09-28
 > **Status**: Approved
 
 Requirement IDs (FR/NFR/AC) refer to [requirements.md](requirements.md).
@@ -55,5 +55,7 @@ Requirement IDs (FR/NFR/AC) refer to [requirements.md](requirements.md).
 ## Phase 5: CI/CD & Deployment
 
 - [ ] 35. Add a CI job for acceptance tests (cached ansible-core checkout, validate-modules) and a manual/scheduled job for runtime tests
-- [ ] 36. Verify install paths: `uv tool install git+…`, `uvx --from git+…`, `pip install -e .` and `pipx install git+…` (NFR-2)
-- [ ] 37. Write user documentation in `README.md`: install, commands, configuration, exit codes, and using `audit` as a CI gate
+- [ ] 36. Set up Mend Renovate: install the GitHub app and add `renovate.json` so it opens PRs for outdated dependencies in `pyproject.toml`, `uv.lock` (with lock file maintenance) and GitHub Actions; CI must pass before an update PR is merged
+- [ ] 37. Set up Mend Bolt: install the GitHub app to scan dependencies for known vulnerabilities, open issues and raise fix PRs for vulnerable packages
+- [ ] 38. Verify install paths: `uv tool install git+…`, `uvx --from git+…`, `pip install -e .` and `pipx install git+…` (NFR-2)
+- [ ] 39. Write user documentation in `README.md`: install, commands, configuration, exit codes, and using `audit` as a CI gate

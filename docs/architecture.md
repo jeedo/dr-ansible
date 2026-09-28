@@ -38,6 +38,8 @@ reading the module, its action plugin and its tests to discover the keys.
 | Table output | `rich` as optional extra `dr-ansible[rich]`, plain-text fallback | Keep required deps minimal (NFR-3) |
 | Runtime mining | `ansible-test integration --docker` via `subprocess`, plus a bundled callback plugin | Opt-in only (FR-14, NFR-5) |
 | Dev tools | `pytest`, `ruff`, `mypy` (strict), `jsonschema` (tests only) | Template workflow; schema test for JSON output |
+| Dependency updates | Mend Renovate (GitHub app, `renovate.json`) | Automatic PRs for outdated dependencies, including `uv.lock` and GitHub Actions |
+| Vulnerability scanning | Mend Bolt (GitHub app) | Issues and fix PRs for dependencies with known vulnerabilities |
 | License | GPL-3.0-or-later | Imports ansible-core (NFR-4) |
 
 ## System Components
@@ -200,6 +202,8 @@ in the requirements snapshot:
 - **CLI framework**: `click` (an extra runtime dependency beyond NFR-3's list).
   Click already exits with `2` on usage errors, matching the exit-code contract.
 - **Build backend**: `uv_build` (the requirements suggested `hatchling` as an example).
+- **Dependency maintenance** (added 2026-09-28): Mend Renovate for automatic
+  update PRs and Mend Bolt for vulnerability scanning.
 
 ## Research & References
 
