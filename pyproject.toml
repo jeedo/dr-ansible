@@ -32,3 +32,47 @@ dev = [
     "ruff>=0.16.9",
     "types-pyyaml>=6.0.12.20260906",
 ]
+
+[tool.ruff]
+target-version = "py313"
+# Fixtures are deliberately odd module code (dynamic keys, raise-on-import) that
+# dr-ansible analyses; they are test data, not project code.
+extend-exclude = ["tests/fixtures"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "SIM", # flake8-simplify
+    "RUF", # ruff-specific
+    "PT",  # flake8-pytest-style
+]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+files = ["src", "tests"]
+exclude = ["^tests/fixtures/"]
+
+[[tool.mypy.overrides]]
+# ansible-core ships no type information (no py.typed).
+module = ["ansible.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "-m", "not acceptance and not runtime",
+]
+xfail_strict = true
+markers = [
+    "acceptance: needs a pinned ansible-core devel checkout (run with -m acceptance)",
+    "runtime: runs ansible-test integration in Docker (run with -m runtime)",
+]

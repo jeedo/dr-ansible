@@ -66,5 +66,5 @@ def test_runtime_dependency_license_is_gpl3_compatible(dist: str) -> None:
 
 @pytest.mark.parametrize("dist", ["ruff", "mypy", "jsonschema", "types-PyYAML"])
 def test_dev_dependency_is_installed_in_project_env(dist: str) -> None:
-    # Checks distribution metadata, not PATH, so a globally installed tool does not count.
+    # Check distribution metadata, not PATH: a globally installed tool must not count.
     assert metadata(dist)["Name"].lower() == dist.lower()
