@@ -1,7 +1,7 @@
 # Implementation Plan
 
 > Generated from [Architecture](architecture.md)
-> **Last Updated**: 2026-09-27
+> **Last Updated**: 2026-09-28
 > **Status**: Approved
 
 Requirement IDs (FR/NFR/AC) refer to [requirements.md](requirements.md).
@@ -55,5 +55,6 @@ Requirement IDs (FR/NFR/AC) refer to [requirements.md](requirements.md).
 ## Phase 5: CI/CD & Deployment
 
 - [ ] 35. Add a CI job for acceptance tests (cached ansible-core checkout, validate-modules) and a manual/scheduled job for runtime tests
-- [ ] 36. Verify install paths: `uv tool install git+…`, `uvx --from git+…`, `pip install -e .` and `pipx install git+…` (NFR-2)
-- [ ] 37. Write user documentation in `README.md`: install, commands, configuration, exit codes, and using `audit` as a CI gate
+- [ ] 36. Automated dependency updates with Dependabot (`.github/dependabot.yml`), as in jeedo/oneshot: weekly version updates for the `uv` (`pyproject.toml` + `uv.lock`) and `github-actions` ecosystems, grouped per ecosystem for minor + patch only so major bumps get their own PR for manual review; Dependabot security updates enabled in the repository settings; Dependabot PRs run the full CI suite, `main` branch protection requires every check to pass, and there is no auto-merge — a human reviews and approves
+- [ ] 37. Verify install paths: `uv tool install git+…`, `uvx --from git+…`, `pip install -e .` and `pipx install git+…` (NFR-2)
+- [ ] 38. Write user documentation in `README.md`: install, commands, configuration, exit codes, and using `audit` as a CI gate
