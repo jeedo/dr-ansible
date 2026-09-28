@@ -38,6 +38,7 @@ reading the module, its action plugin and its tests to discover the keys.
 | Table output | `rich` as optional extra `dr-ansible[rich]`, plain-text fallback | Keep required deps minimal (NFR-3) |
 | Runtime mining | `ansible-test integration --docker` via `subprocess`, plus a bundled callback plugin | Opt-in only (FR-14, NFR-5) |
 | Dev tools | `pytest`, `ruff`, `mypy` (strict), `jsonschema` (tests only) | Template workflow; schema test for JSON output |
+| Distribution | PyPI (`dr-ansible`), released from `v*` tags by a GitHub Actions workflow using trusted publishing | `pip install dr-ansible` / `uvx dr-ansible`; no stored API tokens; attestations for provenance |
 | Dependency updates | Dependabot (`.github/dependabot.yml` + security updates) | Weekly grouped minor/patch PRs for `uv` and `github-actions`, separate PRs for majors, security fix PRs; same setup as jeedo/oneshot |
 | License | GPL-3.0-or-later | Imports ansible-core (NFR-4) |
 
@@ -203,6 +204,9 @@ in the requirements snapshot:
 - **Build backend**: `uv_build` (the requirements suggested `hatchling` as an example).
 - **Dependency maintenance** (added 2026-09-28): Dependabot version and security
   updates, gated by CI and human review (no auto-merge).
+- **Distribution** (added 2026-09-28): published to PyPI as `dr-ansible` in
+  addition to the git installs in NFR-2; releases use trusted publishing via
+  GitHub Actions, go to TestPyPI first, and need a human approval before PyPI.
 
 ## Research & References
 
