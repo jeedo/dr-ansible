@@ -9,7 +9,7 @@ Requirement IDs (FR/NFR/AC) refer to [requirements.md](requirements.md).
 ## Phase 1: Setup & Scaffolding
 
 - [x] 1. Initialise the package with uv: `pyproject.toml` (PEP 621, `uv_build` backend, `requires-python = ">=3.13"`, GPL-3.0-or-later), `src/dr_ansible/` layout, `.python-version` (3.13), `dr-ansible` console script pointing at a stub `click` group; commit `uv.lock` (NFR-1, NFR-2)
-- [ ] 2. Add the remaining dependencies with `uv add`: `ansible-core>=2.21.4`, `PyYAML`; optional extra `rich`; dev group `ruff`, `mypy` (strict), `jsonschema`, `types-PyYAML` (`click` and `pytest` were added in task 1) (NFR-3)
+- [x] 2. Add the remaining dependencies with `uv add`: `ansible-core>=2.21.4`, `PyYAML`; optional extra `rich`; dev group `ruff`, `mypy` (strict), `jsonschema`, `types-PyYAML` (`click` and `pytest` were added in task 1) (NFR-3)
 - [ ] 3. Configure ruff, mypy and pytest (markers `acceptance` and `runtime`) in `pyproject.toml`; anchor `.gitignore`'s `lib/` to `/lib/` so fixture trees are tracked
 - [ ] 4. Update CI (`.github/workflows/ci.yml`) to Python 3.13 and `uv sync`; run ruff, ruff format check, mypy and unit tests on push and PR
 - [ ] 5. Define the core dataclasses in `model.py` (`ModuleInfo`, `DocResult`, `DocumentedKey`, `StaticKey`, `Unresolved`, `Observation`, `KeyReport`, `ModuleReport`)
