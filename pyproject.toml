@@ -1,0 +1,23 @@
+[project]
+name = "dr-ansible"
+version = "0.1.0"
+description = "Find Ansible modules with missing RETURN docs and draft them from evidence"
+readme = "README.md"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+requires-python = ">=3.13"
+dependencies = [
+    "click>=8.5.0",
+]
+
+[project.scripts]
+dr-ansible = "dr_ansible.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.12.19,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
