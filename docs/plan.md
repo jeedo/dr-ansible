@@ -18,7 +18,7 @@ Requirement IDs (FR/NFR/AC) refer to [requirements.md](requirements.md).
 ## Phase 2: Core Domain
 
 - [x] 7. `config.py`: load `dr-ansible.toml` or `[tool.dr-ansible]` over built-in defaults (exempt allowlist, common return keys, redaction patterns, Docker image) (NFR-9, FR-6, FR-18)
-- [ ] 8. `discovery.py`: detect ansible-core vs collection layout and read namespace/name for FQCNs; list `.py` modules (skip `__init__.py`) and `.ps1` as `unsupported`; pair sidecar, action plugin and integration target (FR-1, FR-2)
+- [x] 8. `discovery.py`: detect ansible-core vs collection layout and read namespace/name for FQCNs; list `.py` modules (skip `__init__.py`) and `.ps1` as `unsupported`; pair sidecar, action plugin and integration target (FR-1, FR-2)
 - [ ] 9. `discovery.py`: resolve names, aliases and redirects from `ansible_builtin_runtime.yml` / `meta/runtime.yml`; `--module` name/glob filtering; deterministic sort (FR-3, FR-4, NFR-6)
 - [ ] 10. `docs_audit.py`: `ast` check for a `RETURN` assignment or sidecar key plus `read_docstring` parsing; classify `missing` / `placeholder` / `invalid` / `present` / `exempt`; verify how `read_docstring` treats placeholders (FR-5, FR-6)
 - [ ] 11. `docs_audit.py`: required-field checks and flattening of documented keys, including nested `contains`, into dotted paths (FR-7)
