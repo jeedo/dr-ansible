@@ -12,7 +12,7 @@ Requirement IDs (FR/NFR/AC) refer to [requirements.md](requirements.md).
 - [x] 2. Add the remaining dependencies with `uv add`: `ansible-core>=2.21.4`, `PyYAML`; optional extra `rich`; dev group `ruff`, `mypy` (strict), `jsonschema`, `types-PyYAML` (`click` and `pytest` were added in task 1) (NFR-3)
 - [x] 3. Configure ruff, mypy and pytest (markers `acceptance` and `runtime`) in `pyproject.toml`; anchor `.gitignore`'s `lib/` to `/lib/` so fixture trees are tracked
 - [x] 4. Update CI (`.github/workflows/ci.yml`) to Python 3.13 and `uv sync`; run ruff, ruff format check, mypy and unit tests on push and PR
-- [ ] 5. Define the core dataclasses in `model.py` (`ModuleInfo`, `DocResult`, `DocumentedKey`, `StaticKey`, `Unresolved`, `Observation`, `KeyReport`, `ModuleReport`)
+- [x] 5. Define the core dataclasses in `model.py` (`ModuleInfo`, `DocResult`, `DocumentedKey`, `StaticKey`, `Unresolved`, `Observation`, `KeyReport`, `ModuleReport`)
 - [ ] 6. Build the synthetic test fixtures: an ansible-core-style tree and a collection with `galaxy.yml`, covering incremental `exit_json(**result)`, keyword `exit_json`, helper returning a dict, virtual module + action plugin, hybrid `_execute_module` action plugin, dynamic key, sidecar `.yml`, a `.ps1` module, and a module that raises on import
 
 ## Phase 2: Core Domain
