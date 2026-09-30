@@ -1,0 +1,11 @@
+# Fixture: this target keeps its tasks in roles/*/tasks.
+- name: Run the hybrid module
+  ansible.builtin.hybrid:
+    dest: /tmp/dest
+  register: hybrid_out
+
+- assert:
+    that:
+      - hybrid_out.dest == '/tmp/dest'
+      - hybrid_out.transferred
+  failed_when: hybrid_out.checksum is not defined

@@ -1,0 +1,29 @@
+# Fixture: calls the module under its short name, its FQCN and a redirected
+# name, and checks keys through both dot and bracket syntax.
+- name: Short name
+  incremental:
+    path: /etc/hosts
+  register: inc_short
+
+- name: Fully qualified name
+  ansible.builtin.incremental:
+    path: /etc/hosts
+  register: inc_fqcn
+
+- name: Redirected name
+  ansible.builtin.old_incremental:
+    path: /etc/hosts
+  register: inc_old
+
+- name: Check the result
+  assert:
+    that:
+      - inc_short.size == 42
+      - inc_short['mode'] == '0644'
+      - inc_fqcn.checksum is defined
+      - inc_old.path == '/etc/hosts'
+
+- name: Only when changed
+  debug:
+    var: inc_short.backup_file
+  when: inc_short is changed

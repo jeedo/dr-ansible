@@ -1,0 +1,16 @@
+- name: Fetch a file
+  virtual:
+    src: /etc/motd
+  register: virtual_result
+
+- name: Missing src fails
+  virtual: {}
+  register: virtual_missing
+  ignore_errors: true
+
+- assert:
+    that:
+      - virtual_result.dest.startswith('/tmp/fetched')
+      - virtual_result['checksum'] | length == 40
+      - virtual_result.file == '/etc/motd'
+      - virtual_missing is failed

@@ -1,0 +1,15 @@
+{
+  "collection_info": {
+    "namespace": "example",
+    "name": "gadgets",
+    "version": "2.0.0",
+    "authors": ["dr-ansible fixtures"],
+    "license": ["GPL-3.0-or-later"]
+  },
+  "file_manifest_file": {
+    "name": "FILES.json",
+    "ftype": "file",
+    "format": 1
+  },
+  "format": 1
+}
