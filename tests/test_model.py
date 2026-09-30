@@ -153,6 +153,16 @@ def test_module_info_paths_lists_only_known_locations() -> None:
     assert info.paths() == {"module": MOD, "action": ACTION}
 
 
+def test_module_info_names_are_sorted_and_unique() -> None:
+    info = _info(aliases=["old_fetch", "ansible.legacy.fetch", "fetch"])
+    assert info.names == (
+        "ansible.builtin.fetch",
+        "ansible.legacy.fetch",
+        "fetch",
+        "old_fetch",
+    )
+
+
 @pytest.mark.parametrize("field", ["name", "fqcn"])
 def test_module_info_rejects_empty_names(field: str) -> None:
     with pytest.raises(ValueError, match=field):
