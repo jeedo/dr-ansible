@@ -1,0 +1,23 @@
+- name: Normal run
+  keywords:
+  register: kw
+
+- name: A run whose values must never reach the output
+  keywords:
+    password: hunter2
+  register: kw_secret
+  no_log: true
+
+- name: A failing run
+  keywords:
+    fail: true
+  register: kw_failed
+  ignore_errors: true
+
+- assert:
+    that:
+      - kw.ping == 'pong'
+      - kw.count == 3
+      - kw_failed.rc == 1
+      - kw_failed.stderr == 'boom'
+      - kw_secret.enabled

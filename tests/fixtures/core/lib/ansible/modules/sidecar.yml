@@ -1,0 +1,20 @@
+# Sidecar docs for sidecar.py.
+DOCUMENTATION:
+  module: sidecar
+  short_description: Keep documentation in a sidecar file
+
+EXAMPLES: |
+  - sidecar:
+
+RETURN:
+  version:
+    description: The version string.
+    returned: always
+    type: str
+    sample: "1.0"
+  features:
+    description: Enabled features.
+    returned: always
+    type: list
+    elements: str
+    sample: [a, b]

@@ -1,0 +1,6 @@
+# Fixture: module routing for the core tree. old_incremental is a redirect, so
+# ansible.builtin.old_incremental must resolve to the incremental module.
+plugin_routing:
+  modules:
+    old_incremental:
+      redirect: ansible.builtin.incremental

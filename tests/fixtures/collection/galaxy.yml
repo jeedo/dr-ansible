@@ -1,0 +1,7 @@
+# Fixture: a source collection, identified by galaxy.yml.
+namespace: example
+name: widgets
+version: 1.0.0
+readme: README.md
+authors:
+  - dr-ansible fixtures

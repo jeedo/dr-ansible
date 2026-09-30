@@ -1,0 +1,9 @@
+- name: Create a widget
+  example.widgets.widget:
+    name: gear
+  register: made
+
+- assert:
+    that:
+      - made.widget_id == 12
+      - made.name == 'gear'
