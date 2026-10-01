@@ -25,7 +25,7 @@ Requirement IDs (FR/NFR/AC) refer to [requirements.md](requirements.md).
 - [x] 12. `static/infer.py`: type inference from AST values (literals, bools, f-strings, lists with element types, dicts with nested keys, unknown) and enclosing-condition capture (FR-11)
 - [x] 13. `static/module_analyzer.py`: `exit_json` keyword keys and `**name` tracing through dict literals, `dict(...)`, subscript assignment, `.update()` and `.setdefault()` within a function (FR-8, FR-9)
 - [x] 14. `static/module_analyzer.py`: one-level local helper resolution, failure-only keys from `fail_json`, and `unresolved` reporting for dynamic keys (FR-9, FR-12)
-- [ ] 15. `static/action_analyzer.py`: analyse `ActionModule.run()` (`result[k] = ...`, `.update()`, `return dict(...)`) and detect `_execute_module` inheritance, including delegation to another action plugin (FR-10, AC-7)
+- [x] 15. `static/action_analyzer.py`: analyse `ActionModule.run()` (`result[k] = ...`, `.update()`, `return dict(...)`) and detect `_execute_module` inheritance, including delegation to another action plugin (FR-10, AC-7)
 - [ ] 16. `mining/static_miner.py`: parse integration target YAML, match tasks by any module name, track `register:` variables, extract `<var>.<key>` / `<var>['<key>']` from `assert`/`that`, `when`, `failed_when` and `debug` (FR-13, AC-5)
 - [ ] 17. `mining/redact.py`: drop `no_log` values and values of keys matching redaction patterns; truncate long strings (FR-16, AC-12)
 - [ ] 18. `reconcile.py`: merge documented, static and observed evidence per key into `ok` / `undocumented` / `stale` / `test-only`; exclude common keys unless requested (FR-15, FR-17, FR-18)
