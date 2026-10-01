@@ -298,7 +298,8 @@ class ModuleReport:
     return_status: ReturnStatus
     keys: tuple[KeyReport, ...] = ()
     unresolved: tuple[Unresolved, ...] = ()
-    inherits_from: str | None = None
+    #: Modules (or delegated action plugins) whose returns this module passes on.
+    inherits_from: tuple[str, ...] = ()
     error: str | None = None
 
     def __post_init__(self) -> None:
@@ -310,6 +311,7 @@ class ModuleReport:
         keys = tuple(sorted(self.keys, key=lambda k: k.name))
         _check_unique((k.name for k in keys), "key")
         _set(self, "keys", keys)
+        _set(self, "inherits_from", tuple(sorted(set(self.inherits_from))))
         _set(
             self,
             "unresolved",

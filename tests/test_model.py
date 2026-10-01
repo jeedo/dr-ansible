@@ -372,10 +372,21 @@ def test_powershell_modules_are_unsupported() -> None:
     assert report.keys == ()
 
 
-def test_inherits_from_names_another_module() -> None:
+def test_inherits_from_names_other_modules_sorted_and_unique() -> None:
     report = ModuleReport(
         module=_info(name="copy", fqcn="ansible.builtin.copy"),
         return_status=ReturnStatus.PRESENT,
-        inherits_from="ansible.builtin.copy",
+        inherits_from=(
+            "ansible.legacy.file",
+            "ansible.legacy.copy",
+            "ansible.legacy.file",
+        ),
     )
-    assert report.inherits_from == "ansible.builtin.copy"
+    assert report.inherits_from == ("ansible.legacy.copy", "ansible.legacy.file")
+
+
+def test_inherits_from_defaults_to_nothing() -> None:
+    assert (
+        ModuleReport(module=_info(), return_status=ReturnStatus.MISSING).inherits_from
+        == ()
+    )

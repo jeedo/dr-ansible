@@ -28,7 +28,7 @@ Requirement IDs (FR/NFR/AC) refer to [requirements.md](requirements.md).
 - [x] 15. `static/action_analyzer.py`: analyse `ActionModule.run()` (`result[k] = ...`, `.update()`, `return dict(...)`) and detect `_execute_module` inheritance, including delegation to another action plugin (FR-10, AC-7)
 - [x] 16. `mining/static_miner.py`: parse integration target YAML, match tasks by any module name, track `register:` variables, extract `<var>.<key>` / `<var>['<key>']` from `assert`/`that`, `when`, `failed_when` and `debug` (FR-13, AC-5)
 - [x] 17. `mining/redact.py`: drop `no_log` values and values of keys matching redaction patterns; truncate long strings (FR-16, AC-12)
-- [ ] 18. `reconcile.py`: merge documented, static and observed evidence per key into `ok` / `undocumented` / `stale` / `test-only`; exclude common keys unless requested (FR-15, FR-17, FR-18)
+- [x] 18. `reconcile.py`: merge documented, static and observed evidence per key into `ok` / `undocumented` / `stale` / `test-only`; exclude common keys unless requested (FR-15, FR-17, FR-18)
 - [ ] 19. `draft.py`: deterministic YAML emitter for the full skeleton with `DR-ANSIBLE-TODO` descriptions, inferred `returned` / `type` / `elements` / `contains` / `sample`, and evidence comments (FR-19, FR-21)
 - [ ] 20. `draft.py`: merge mode that copies existing `RETURN` text byte for byte and appends only missing top-level keys, listing missing nested keys as comments (FR-20, AC-9)
 
