@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from dr_ansible.model import Outcome, ReturnType, StaticKey
+from dr_ansible.model import JSONValue, Outcome, ReturnType, Sample, StaticKey
 from dr_ansible.static.module_analyzer import AnalysisError, analyze_module
 
 MODULES = (
@@ -37,6 +37,7 @@ def _key(
     snippet: str,
     type_: ReturnType | None,
     condition: str | None = None,
+    literal: JSONValue | None = None,
 ) -> StaticKey:
     return StaticKey(
         path=key,
@@ -45,6 +46,7 @@ def _key(
         outcome=Outcome.SUCCESS,
         inferred_type=type_,
         condition=condition,
+        literal=None if literal is None else Sample(literal),
     )
 
 
@@ -62,13 +64,13 @@ def test_incremental_result_is_traced_through_every_mutation() -> None:
     assert list(analyze_module(path).keys) == sorted(
         [
             _key(path, "backup_file", 'result["backup_file"]', T.STR, "changed"),
-            _key(path, "changed", "result = dict(changed=False", T.BOOL),
-            _key(path, "changed", 'result["changed"] = True', T.BOOL, "changed"),
+            _key(path, "changed", "result = dict(changed=False", T.BOOL, literal=False),
+            _key(path, "changed", 'result["changed"] = True', T.BOOL, "changed", True),
             _key(path, "checksum", "result.update(mode=", T.STR),
-            _key(path, "mode", "result.update(mode=", T.STR),
-            _key(path, "owner", 'result.setdefault("owner"', T.STR),
+            _key(path, "mode", "result.update(mode=", T.STR, literal="0644"),
+            _key(path, "owner", 'result.setdefault("owner"', T.STR, literal="root"),
             _key(path, "path", "result = dict(changed=False", None),
-            _key(path, "size", 'result["size"] = 42', T.INT),
+            _key(path, "size", 'result["size"] = 42', T.INT, literal=42),
         ],
         key=lambda k: (k.path, k.line),
     )
@@ -94,11 +96,11 @@ def test_keyword_arguments_to_exit_json() -> None:
 def test_named_dict_value_gives_nested_keys() -> None:
     path = MODULES / "nested.py"
     assert list(analyze_module(path).keys) == [
-        _key(path, "changed", "exit_json(changed=False", T.BOOL),
+        _key(path, "changed", "exit_json(changed=False", T.BOOL, literal=False),
         _key(path, "info", "exit_json(changed=False", T.DICT),
-        _key(path, "info.exists", 'info = {"exists": True}', T.BOOL),
-        _key(path, "info.owner", 'info["owner"]', T.STR),
-        _key(path, "info.size", 'info["size"]', T.INT),
+        _key(path, "info.exists", 'info = {"exists": True}', T.BOOL, literal=True),
+        _key(path, "info.owner", 'info["owner"]', T.STR, literal="root"),
+        _key(path, "info.size", 'info["size"]', T.INT, literal=1024),
     ]
 
 
@@ -308,3 +310,40 @@ def test_keys_that_cannot_be_path_segments_are_skipped(tmp_path: Path) -> None:
         "    m.exit_json(**r)\n",
     )
     assert [k.path for k in keys] == ["ok"]
+
+
+def test_literal_values_become_samples(tmp_path: Path) -> None:
+    _, keys = _analyze_source(
+        tmp_path,
+        "def main():\n"
+        "    msg = 'pong'\n"
+        "    m.exit_json(\n"
+        "        s='x', n=3, f=0.5, b=True, items=['a', 'b'], d={'k': 1},\n"
+        "        none=None, fs=f'{x}', var=path, named=msg, neg=-1,\n"
+        "    )\n",
+    )
+    literals = {k.path: k.literal for k in keys}
+    assert literals == {
+        "b": Sample(True),
+        "d": None,  # dict values are described by their nested keys
+        "d.k": Sample(1),
+        "f": Sample(0.5),
+        "fs": None,
+        "items": Sample(["a", "b"]),
+        "n": Sample(3),
+        "named": Sample("pong"),
+        "neg": Sample(-1),
+        "none": None,
+        "s": Sample("x"),
+        "var": None,
+    }
+
+
+def test_keywords_fixture_literals() -> None:
+    keys = {
+        k.path: k.literal
+        for k in analyze_module(MODULES / "keywords.py").keys
+        if k.outcome is Outcome.SUCCESS
+    }
+    assert keys["ping"] == Sample("pong")
+    assert keys["items"] == Sample(["a", "b"])

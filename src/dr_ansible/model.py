@@ -7,6 +7,7 @@ invariants in ``__post_init__`` so that an inconsistent report fails where it
 is built rather than where it is printed.
 """
 
+import json
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -120,9 +121,24 @@ class Location:
 
 @dataclass(frozen=True, slots=True)
 class Sample:
-    """A sample value. Wrapped so that a ``null`` sample differs from no sample."""
+    """A sample value. Wrapped so that a ``null`` sample differs from no sample.
+
+    Samples compare and hash by their canonical JSON form, so list and dict
+    samples can live in sets, and ``Sample(1)`` differs from ``Sample(True)``.
+    """
 
     value: JSONValue
+
+    def _canonical(self) -> str:
+        return json.dumps(self.value, sort_keys=True)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Sample):
+            return NotImplemented
+        return self._canonical() == other._canonical()
+
+    def __hash__(self) -> int:
+        return hash(self._canonical())
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -211,6 +227,8 @@ class StaticKey:
     outcome: Outcome
     inferred_type: ReturnType | None = None
     condition: str | None = None
+    #: The value, when the code sets it to a plain literal (a draft's fallback sample).
+    literal: Sample | None = None
 
     def __post_init__(self) -> None:
         _check_key_path(self.path)

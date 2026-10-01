@@ -20,7 +20,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from dr_ansible.model import Outcome, ReturnType, StaticKey, Unresolved
+from dr_ansible.model import Outcome, ReturnType, Sample, StaticKey, Unresolved
 from dr_ansible.static.infer import condition_for, infer, parent_map
 
 _SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
@@ -99,6 +99,7 @@ class Analysis:
         type_: ReturnType | None,
         condition: str | None,
         ctx: Ctx,
+        literal: Sample | None = None,
     ) -> None:
         self._keys.add(
             StaticKey(
@@ -108,6 +109,7 @@ class Analysis:
                 outcome=ctx.outcome,
                 inferred_type=type_,
                 condition=condition,
+                literal=literal,
             )
         )
 
@@ -332,9 +334,18 @@ class Tracer:
             assert helper is not None
             self._helper_keys(helper, value, f"{path}.", ctx)
         elif isinstance(value, ast.Name):
-            self._a.add_key(path, line, self._name_type(value.id), condition, ctx)
+            self._a.add_key(
+                path,
+                line,
+                self._name_type(value.id),
+                condition,
+                ctx,
+                self._name_literal(value.id),
+            )
         else:
-            self._a.add_key(path, line, infer(value).type, condition, ctx)
+            self._a.add_key(
+                path, line, infer(value).type, condition, ctx, _literal(value)
+            )
 
     def _literal(
         self, value: ast.expr, prefix: str, condition: str | None, ctx: Ctx
@@ -361,6 +372,11 @@ class Tracer:
     def assigned(self, name: str) -> list[ast.expr]:
         """Every value assigned to the plain variable ``name`` in this scope."""
         return list(self._assigned.get(name, []))
+
+    def _name_literal(self, name: str) -> Sample | None:
+        """The literal value of a variable assigned exactly once, to a literal."""
+        values = self._assigned.get(name, [])
+        return _literal(values[0]) if len(values) == 1 else None
 
     def _name_type(self, name: str) -> ReturnType | None:
         """The type of a plain variable, if every assignment to it agrees."""
@@ -549,6 +565,30 @@ def _param_names(scope: ast.AST) -> frozenset[str]:
     if args.vararg is not None:
         params.append(args.vararg)
     return frozenset(a.arg for a in params)
+
+
+def _literal(value: ast.expr) -> Sample | None:
+    """``value`` as a sample, if it is a plain literal (evaluated without running code).
+
+    ``None`` is not a sample: in code it usually means "not set yet".
+    """
+    try:
+        evaluated = ast.literal_eval(value)
+    except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
+        return None
+    if evaluated is None or not _is_json(evaluated):
+        return None
+    return Sample(evaluated)
+
+
+def _is_json(value: object) -> bool:
+    if value is None or isinstance(value, bool | int | float | str):
+        return True
+    if isinstance(value, list | tuple):
+        return all(_is_json(item) for item in value)
+    if isinstance(value, dict):
+        return all(isinstance(k, str) and _is_json(v) for k, v in value.items())
+    return False
 
 
 def _is_dict_literal(value: ast.expr) -> bool:
