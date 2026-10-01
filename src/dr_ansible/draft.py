@@ -31,6 +31,7 @@ import yaml
 from dr_ansible.config import Config
 from dr_ansible.mining.redact import redact_sample
 from dr_ansible.model import (
+    DocResult,
     JSONValue,
     KeyReport,
     KeyStatus,
@@ -38,6 +39,7 @@ from dr_ansible.model import (
     ModuleReport,
     Outcome,
     ResultState,
+    ReturnStatus,
     ReturnType,
     Sample,
 )
@@ -97,10 +99,7 @@ def render_draft(report: ModuleReport, config: Config, root: Path) -> str:
         f"# dr-ansible draft for {report.fqcn}: replace every {MARKER} with a"
         " description."
     ]
-    header += [
-        f"# unresolved: {_relative(u.file, root)}:{u.line}: {u.reason}"
-        for u in report.unresolved
-    ]
+    header += _unresolved_lines(report, root)
     entries = build_entries(report.keys, config)
     if not entries:
         header.append("# no return keys were found")
@@ -110,6 +109,102 @@ def render_draft(report: ModuleReport, config: Config, root: Path) -> str:
     for entry in entries:
         body.extend(_render(entry, "", root))
     return "\n".join([*header, 'RETURN = r"""', *body, '"""', ""])
+
+
+def render_merge(
+    report: ModuleReport, docs: DocResult, config: Config, root: Path
+) -> str:
+    """Merge mode (FR-20, AC-9): keep the existing ``RETURN``, add what is missing.
+
+    The existing ``RETURN`` text is copied byte for byte, and only missing
+    top-level keys are appended. Missing keys nested under an existing entry
+    are listed as YAML comments, never edited in. Docs in a sidecar ``.yml``
+    get just the entries to paste under its ``RETURN:`` key. Without a valid
+    existing ``RETURN`` to keep, the result is the full draft, with a note.
+    """
+    sidecar = report.module.sidecar_path
+    if sidecar is None and (
+        docs.raw_text is None or docs.status is ReturnStatus.INVALID
+    ):
+        note = (
+            "# the existing RETURN is not valid YAML: fix it, or replace it with"
+            " this full draft"
+            if docs.status is ReturnStatus.INVALID
+            else "# no existing RETURN to merge into: this is a full draft"
+        )
+        full = render_draft(report, config, root).split("\n")
+        return "\n".join([full[0], note, *full[1:]])
+
+    documented = {d.path for d in docs.keys}
+    missing = [
+        k
+        for k in report.keys
+        if k.documented is None and k.status is not KeyStatus.STALE
+    ]
+    top_level = [k for k in missing if k.name.split(".", 1)[0] not in documented]
+    nested = [k for k in missing if k.name.split(".", 1)[0] in documented]
+
+    header = [
+        f"# dr-ansible merge draft for {report.fqcn}: existing entries are"
+        f" unchanged; replace every {MARKER} with a description."
+    ]
+    header += _unresolved_lines(report, root)
+    if sidecar is not None:
+        header.append(_sidecar_note(sidecar, docs, root))
+    if not missing:
+        header.append("# nothing to add")
+
+    base = "  " if sidecar is not None else ""
+    added: list[str] = []
+    for entry in build_entries(top_level, config):
+        added.extend(_render(entry, base, root))
+    added.extend(_nested_comments(nested, documented, config, root))
+
+    if sidecar is not None:
+        return "\n".join([*header, *added, ""])
+    existing = docs.raw_text or ""
+    if added and existing and not existing.endswith("\n"):
+        existing += "\n"
+    body = existing + "".join(f"{line}\n" for line in added)
+    return "\n".join([*header, f'RETURN = r"""{body}"""', ""])
+
+
+def _unresolved_lines(report: ModuleReport, root: Path) -> list[str]:
+    return [
+        f"# unresolved: {_relative(u.file, root)}:{u.line}: {u.reason}"
+        for u in report.unresolved
+    ]
+
+
+def _sidecar_note(sidecar: Path, docs: DocResult, root: Path) -> str:
+    if docs.status is ReturnStatus.MISSING:
+        return f"# {sidecar.name} has no RETURN: key; add one with these entries"
+    if docs.status is ReturnStatus.INVALID:
+        return f"# {_relative(sidecar, root)} is not valid YAML; fix it first"
+    return f"# add these entries under RETURN: in {_relative(sidecar, root)}"
+
+
+def _nested_comments(
+    keys: list[KeyReport], documented: set[str], config: Config, root: Path
+) -> list[str]:
+    """One comment line per missing key nested under an existing entry."""
+    if not keys:
+        return []
+    lines = [
+        "# dr-ansible: keys missing under existing entries"
+        " (add them to the entry's contains):"
+    ]
+
+    def walk(entries: tuple[DraftEntry, ...]) -> None:
+        for entry in entries:
+            if entry.path not in documented:
+                line = f"#   {entry.path}: type {entry.type}, returned {entry.returned}"
+                evidence = _evidence(entry, root)
+                lines.append(f"{line}; {evidence}" if evidence else line)
+            walk(entry.contains)
+
+    walk(build_entries(keys, config))
+    return lines
 
 
 # --- building one entry -------------------------------------------------------------
