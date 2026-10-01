@@ -37,7 +37,7 @@ Requirement IDs (FR/NFR/AC) refer to [requirements.md](requirements.md).
 - [x] 21. `report/`: table output (rich if installed, plain-text fallback), markdown output, and JSON output with `schema_version`
 - [x] 22. Write `schema/report.schema.json` and validate JSON output against it in tests
 - [x] 23. `cli.py`: `audit` command with `--module`, `--status`, `--format`, and exit codes 0/1/2; per-module failures reported as `error` without stopping the run (NFR-8)
-- [ ] 24. `cli.py`: `returns` command with `--include-common` and `--format`
+- [x] 24. `cli.py`: `returns` command with `--include-common` and `--format`
 - [ ] 25. `cli.py`: `draft` command with `--merge` (default), `--full` and `--output <file>` (NFR-5)
 - [ ] 26. `mining/callback/dr_ansible_recorder.py`: callback plugin recording keys, types, result state and truncated values for the module under test, skipping `no_log` results (FR-14)
 - [ ] 27. `mining/runtime.py` and `--run` / `--docker` / `--local` on `returns` and `draft`: run `ansible-test integration` via subprocess with the callback enabled and merge observations (FR-14, NFR-5)

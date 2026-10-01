@@ -4,7 +4,7 @@ Exit codes: ``0`` nothing needs attention, ``1`` findings were reported, ``2``
 a usage error or a project that cannot be read. A module that fails to parse
 is reported with the ``error`` status and does not stop the run (NFR-8).
 
-The ``returns`` and ``draft`` subcommands are added in later plan tasks.
+The ``draft`` subcommand is added in a later plan task.
 """
 
 from collections.abc import Sequence
@@ -21,9 +21,15 @@ from dr_ansible.discovery import (
     discover_modules,
     filter_modules,
 )
-from dr_ansible.model import ReturnStatus
+from dr_ansible.model import ModuleInfo, ReturnStatus
 from dr_ansible.pipeline import analyze, has_findings
-from dr_ansible.report import audit_markdown, audit_table, reports_to_json
+from dr_ansible.report import (
+    audit_markdown,
+    audit_table,
+    keys_markdown,
+    keys_table,
+    reports_to_json,
+)
 
 EXIT_CLEAN = 0
 EXIT_FINDINGS = 1
@@ -66,6 +72,24 @@ def _load(path: Path, config_file: Path | None) -> tuple[Project, Config]:
         return project, load_config(project.root, config_file)
     except (DiscoveryError, ConfigError) as exc:
         raise FatalError(str(exc)) from exc
+
+
+def _select_one(project: Project, name: str) -> ModuleInfo:
+    """The one module ``name`` (a name, alias or glob) refers to."""
+    try:
+        matches = filter_modules(discover_modules(project), [name])
+    except DiscoveryError as exc:
+        raise FatalError(str(exc)) from exc
+    if not matches:
+        raise FatalError(f"no module matches {name!r}")
+    if len(matches) > 1:
+        names = ", ".join(sorted(m.fqcn for m in matches))
+        raise FatalError(f"{name!r} matches {len(matches)} modules ({names})")
+    return matches[0]
+
+
+def _exit(findings: bool) -> None:
+    raise SystemExit(EXIT_FINDINGS if findings else EXIT_CLEAN)
 
 
 @click.group()
@@ -144,5 +168,40 @@ def audit(
         text = audit_table(reports)
     click.echo(text, nl=False)
 
-    findings = any(has_findings(report) for report in reports)
-    raise SystemExit(EXIT_FINDINGS if findings else EXIT_CLEAN)
+    _exit(any(has_findings(report) for report in reports))
+
+
+@main.command()
+@_path_argument
+@click.argument("module")
+@click.option(
+    "--include-common",
+    is_flag=True,
+    help="Also show common return values such as changed, failed and msg.",
+)
+@_format_option
+@_config_option
+def returns(
+    path: Path,
+    module: str,
+    include_common: bool,
+    output_format: str,
+    config_file: Path | None,
+) -> None:
+    """Show each return key of MODULE in PATH, with its evidence and status.
+
+    MODULE is a name, alias or FQCN, or a glob matching exactly one module.
+    Exits 1 if the module has findings, as for audit.
+    """
+    project, config = _load(path, config_file)
+    selected = _select_one(project, module)
+    report = analyze(selected, config, include_common=include_common).report
+
+    if output_format == "json":
+        text = reports_to_json([report], project.root, config)
+    elif output_format == "markdown":
+        text = keys_markdown(report, project.root)
+    else:
+        text = keys_table(report, project.root)
+    click.echo(text, nl=False)
+    _exit(has_findings(report))
