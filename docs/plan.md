@@ -21,7 +21,7 @@ Requirement IDs (FR/NFR/AC) refer to [requirements.md](requirements.md).
 - [x] 8. `discovery.py`: detect ansible-core vs collection layout and read namespace/name for FQCNs; list `.py` modules (skip `__init__.py`) and `.ps1` as `unsupported`; pair sidecar, action plugin and integration target (FR-1, FR-2)
 - [x] 9. `discovery.py`: resolve names, aliases and redirects from `ansible_builtin_runtime.yml` / `meta/runtime.yml`; `--module` name/glob filtering; deterministic sort (FR-3, FR-4, NFR-6)
 - [x] 10. `docs_audit.py`: `ast` check for a `RETURN` assignment or sidecar key plus `read_docstring` parsing; classify `missing` / `placeholder` / `invalid` / `present` / `exempt`; verify how `read_docstring` treats placeholders (FR-5, FR-6)
-- [ ] 11. `docs_audit.py`: required-field checks and flattening of documented keys, including nested `contains`, into dotted paths (FR-7)
+- [x] 11. `docs_audit.py`: required-field checks and flattening of documented keys, including nested `contains`, into dotted paths (FR-7)
 - [ ] 12. `static/infer.py`: type inference from AST values (literals, bools, f-strings, lists with element types, dicts with nested keys, unknown) and enclosing-condition capture (FR-11)
 - [ ] 13. `static/module_analyzer.py`: `exit_json` keyword keys and `**name` tracing through dict literals, `dict(...)`, subscript assignment, `.update()` and `.setdefault()` within a function (FR-8, FR-9)
 - [ ] 14. `static/module_analyzer.py`: one-level local helper resolution, failure-only keys from `fail_json`, and `unresolved` reporting for dynamic keys (FR-9, FR-12)
