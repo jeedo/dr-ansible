@@ -256,6 +256,7 @@ dev = [
     { name = "jsonschema" },
     { name = "mypy" },
     { name = "pytest" },
+    { name = "rich" },
     { name = "ruff" },
     { name = "types-pyyaml" },
 ]
@@ -274,6 +275,7 @@ dev = [
     { name = "jsonschema", specifier = ">=4.26.0" },
     { name = "mypy", specifier = ">=2.3.1" },
     { name = "pytest", specifier = ">=9.1.1" },
+    { name = "rich", specifier = ">=15.0.0" },
     { name = "ruff", specifier = ">=0.16.9" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20260906" },
 ]
