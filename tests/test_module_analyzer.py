@@ -76,7 +76,9 @@ def test_incremental_result_is_traced_through_every_mutation() -> None:
 
 def test_keyword_arguments_to_exit_json() -> None:
     path = MODULES / "keywords.py"
-    keys = {k.path: k for k in analyze_module(path).keys}
+    keys = {
+        k.path: k for k in analyze_module(path).keys if k.outcome is Outcome.SUCCESS
+    }
     assert {name: k.inferred_type for name, k in keys.items()} == {
         "changed": T.BOOL,
         "count": T.INT,
@@ -116,10 +118,12 @@ def test_other_fixtures(module: str, expected: dict[str, ReturnType | None]) -> 
     assert {k.path: k.inferred_type for k in keys} == expected
 
 
-def test_helper_and_dynamic_fixtures_only_yield_direct_keywords_for_now() -> None:
-    # Helper resolution and unresolved keys arrive in task 14.
-    assert [k.path for k in analyze_module(MODULES / "helper.py").keys] == ["changed"]
-    assert [k.path for k in analyze_module(MODULES / "dynamic.py").keys] == ["changed"]
+def test_helper_and_dynamic_fixtures_resolve_through_helpers_and_wrappers() -> None:
+    # Plan task 14: helpers and wrappers are followed one level deep.
+    helper = [k.path for k in analyze_module(MODULES / "helper.py").keys]
+    assert helper == ["changed", "name", "owner", "state"]
+    dynamic = [k.path for k in analyze_module(MODULES / "dynamic.py").keys]
+    assert dynamic == ["changed", "status"]
 
 
 def test_import_trap_is_never_imported() -> None:
@@ -257,15 +261,15 @@ def test_self_referencing_dict_does_not_loop(tmp_path: Path) -> None:
     assert [k.path for k in keys] == ["r", "r.me"]
 
 
-def test_ignores_what_task_14_resolves(tmp_path: Path) -> None:
+def test_untraceable_parts_are_left_out_of_keys(tmp_path: Path) -> None:
+    # Plan task 14 reports these as unresolved; they never become keys.
     _, keys = _analyze_source(
         tmp_path,
         "def main(extra):\n"
         "    r = {'ok': 1}\n"
         "    r[name] = 2\n"
         "    r.update(other)\n"
-        "    m.exit_json(**r, **extra, **m.params)\n"
-        "    m.fail_json(msg='x', rc=1)\n",
+        "    m.exit_json(**r, **extra, **m.params)\n",
     )
     assert [k.path for k in keys] == ["ok"]
 
