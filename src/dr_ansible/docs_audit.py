@@ -1,4 +1,4 @@
-"""Classify a module's ``RETURN`` documentation (FR-5, FR-6).
+"""Audit a module's ``RETURN`` documentation (FR-5 to FR-7).
 
 Each module gets one status: ``missing``, ``placeholder``, ``invalid``,
 ``present`` or ``exempt``. Parsing reuses ansible-core's
@@ -7,9 +7,14 @@ placeholder (both give ``None``), and it raises if any part of the docs is
 broken. So an ``ast`` pass first finds the ``RETURN`` assignment and its exact
 text, and when ``read_docstring`` fails the ``RETURN`` text is checked on its
 own. Module code is parsed, never imported or run.
+
+For ``present`` docs, every documented key is listed, nested ``contains``
+keys as dotted paths, and missing or malformed fields are reported as
+problems.
 """
 
 import ast
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
@@ -18,17 +23,35 @@ from ansible.parsing.plugin_docs import read_docstring
 from ansible.parsing.yaml.loader import AnsibleLoader
 
 from dr_ansible.config import Config
-from dr_ansible.model import DocResult, Language, ModuleInfo, ReturnStatus
+from dr_ansible.model import (
+    DocResult,
+    DocumentedKey,
+    Language,
+    ModuleInfo,
+    ReturnStatus,
+    ReturnType,
+)
 
 _EXEMPTABLE = frozenset({ReturnStatus.MISSING, ReturnStatus.PLACEHOLDER})
+#: Fields every top-level key must have (FR-7, validate-modules' return_schema).
+_REQUIRED_TOP_LEVEL = ("description", "returned", "type")
+_VALID_TYPES = ", ".join(sorted(t.value for t in ReturnType))
 
 
 class DocsAuditError(Exception):
     """The module file cannot be read or is not valid Python (NFR-8)."""
 
 
+@dataclass(slots=True)
+class _Outcome:
+    status: ReturnStatus
+    raw_text: str | None = None
+    problems: list[str] = field(default_factory=list)
+    keys: list[DocumentedKey] = field(default_factory=list)
+
+
 def audit_docs(module: ModuleInfo, config: Config) -> DocResult:
-    """Give ``module`` its ``RETURN`` status.
+    """Give ``module`` its ``RETURN`` status and list its documented keys.
 
     Docs come from the sidecar ``.yml`` when there is one, as in ansible-core.
     A module on the exempt allowlist (by any of its names) is ``exempt``
@@ -39,16 +62,24 @@ def audit_docs(module: ModuleInfo, config: Config) -> DocResult:
         raise ValueError(f"{module.fqcn}: PowerShell modules are not audited")
 
     if module.sidecar_path is not None:
-        status, raw_text, problems = _from_sidecar(module.sidecar_path)
+        outcome = _from_sidecar(module.sidecar_path)
     else:
-        status, raw_text, problems = _from_python(module.module_path)
+        outcome = _from_python(module.module_path)
 
-    if status in _EXEMPTABLE and set(module.names) & config.exempt_modules:
-        status = ReturnStatus.EXEMPT
-    return DocResult(status=status, raw_text=raw_text, problems=tuple(problems))
+    if outcome.status in _EXEMPTABLE and set(module.names) & config.exempt_modules:
+        outcome.status = ReturnStatus.EXEMPT
+    return DocResult(
+        status=outcome.status,
+        keys=tuple(outcome.keys),
+        raw_text=outcome.raw_text,
+        problems=tuple(outcome.problems),
+    )
 
 
-def _from_python(path: Path) -> tuple[ReturnStatus, str | None, list[str]]:
+# --- finding and parsing RETURN -------------------------------------------------------
+
+
+def _from_python(path: Path) -> _Outcome:
     source = _read(path)
     try:
         tree = ast.parse(source, filename=str(path))
@@ -59,7 +90,9 @@ def _from_python(path: Path) -> tuple[ReturnStatus, str | None, list[str]]:
 
     value = _return_value(tree)
     if value is _NOT_LITERAL:
-        return ReturnStatus.INVALID, None, ["RETURN is not a plain string literal"]
+        return _Outcome(
+            ReturnStatus.INVALID, problems=["RETURN is not a plain string literal"]
+        )
     raw_text = value if isinstance(value, str) else None
 
     try:
@@ -70,66 +103,141 @@ def _from_python(path: Path) -> tuple[ReturnStatus, str | None, list[str]]:
         )
 
     if raw_text is None:
-        problems = []
+        outcome = _Outcome(ReturnStatus.MISSING)
         if _has_annotated_return(tree):
-            problems.append(
+            outcome.problems.append(
                 "RETURN uses an annotated assignment, which ansible-core ignores"
             )
-        return ReturnStatus.MISSING, None, problems
-    status, problems = _classify(returndocs)
-    return status, raw_text, problems
+        return outcome
+    outcome = _classify(returndocs)
+    outcome.raw_text = raw_text
+    return outcome
 
 
-def _fallback(
-    raw_text: str | None, docs_problem: str
-) -> tuple[ReturnStatus, str | None, list[str]]:
+def _fallback(raw_text: str | None, docs_problem: str) -> _Outcome:
     """``read_docstring`` failed: judge the ``RETURN`` text on its own."""
     if raw_text is None:
-        return ReturnStatus.MISSING, None, [docs_problem]
+        return _Outcome(ReturnStatus.MISSING, problems=[docs_problem])
     try:
         parsed = _load_yaml(raw_text)
     except yaml.YAMLError as exc:
-        return (
+        return _Outcome(
             ReturnStatus.INVALID,
             raw_text,
             [f"RETURN is not valid YAML: {_first_line(exc)}"],
         )
-    status, problems = _classify(parsed)
-    return status, raw_text, [*problems, docs_problem]
+    outcome = _classify(parsed)
+    outcome.raw_text = raw_text
+    outcome.problems.append(docs_problem)
+    return outcome
 
 
-def _from_sidecar(path: Path) -> tuple[ReturnStatus, str | None, list[str]]:
+def _from_sidecar(path: Path) -> _Outcome:
     try:
         data = _load_yaml(_read(path))
     except yaml.YAMLError as exc:
-        return (
+        return _Outcome(
             ReturnStatus.INVALID,
-            None,
-            [f"sidecar is not valid YAML: {_first_line(exc)}"],
+            problems=[f"sidecar is not valid YAML: {_first_line(exc)}"],
         )
     if not isinstance(data, dict):
-        return ReturnStatus.INVALID, None, ["sidecar must be a YAML mapping"]
+        return _Outcome(
+            ReturnStatus.INVALID, problems=["sidecar must be a YAML mapping"]
+        )
     if "RETURN" not in data:
-        return ReturnStatus.MISSING, None, []
+        return _Outcome(ReturnStatus.MISSING)
 
     try:
         returndocs = _read_docstring(path)
     except AnsibleParserError as exc:
-        status, problems = _classify(data["RETURN"])
-        problems.append(f"other documentation failed to parse: {_first_line(exc)}")
-        return status, None, problems
-    status, problems = _classify(returndocs)
-    return status, None, problems
+        outcome = _classify(data["RETURN"])
+        outcome.problems.append(
+            f"other documentation failed to parse: {_first_line(exc)}"
+        )
+        return outcome
+    return _classify(returndocs)
 
 
-def _classify(returndocs: object) -> tuple[ReturnStatus, list[str]]:
+def _classify(returndocs: object) -> _Outcome:
     if returndocs is None or returndocs == {}:
-        return ReturnStatus.PLACEHOLDER, []
+        return _Outcome(ReturnStatus.PLACEHOLDER)
     if isinstance(returndocs, dict):
-        return ReturnStatus.PRESENT, []
-    return ReturnStatus.INVALID, [
-        f"RETURN must be a YAML mapping, got {_type_name(returndocs)}"
-    ]
+        keys: list[DocumentedKey] = []
+        problems: list[str] = []
+        _flatten(returndocs, "", keys, problems)
+        return _Outcome(ReturnStatus.PRESENT, keys=keys, problems=problems)
+    return _Outcome(
+        ReturnStatus.INVALID,
+        problems=[f"RETURN must be a YAML mapping, got {_type_name(returndocs)}"],
+    )
+
+
+# --- documented keys (FR-7) -----------------------------------------------------------
+
+
+def _flatten(
+    entries: dict[object, object],
+    prefix: str,
+    keys: list[DocumentedKey],
+    problems: list[str],
+) -> None:
+    """Add each entry, and its ``contains`` entries, as dotted-path keys.
+
+    Keys are visited in sorted order so problems come out deterministically.
+    """
+    for name in sorted(entries, key=str):
+        entry = entries[name]
+        path = f"{prefix}{name}"
+        if "." in str(name):
+            problems.append(f"{path}: key name contains '.'")
+            continue
+        if not isinstance(entry, dict):
+            problems.append(f"{path}: entry must be a mapping, got {_type_name(entry)}")
+            continue
+
+        if not prefix:
+            for required in _REQUIRED_TOP_LEVEL:
+                if not _present(entry.get(required)):
+                    problems.append(f"{path}: missing required field '{required}'")
+        doc_type = _optional_str(entry.get("type"))
+        if doc_type is not None and doc_type not in ReturnType:
+            problems.append(f"{path}: type {doc_type!r} is not one of {_VALID_TYPES}")
+
+        keys.append(
+            DocumentedKey(
+                path=path,
+                type=doc_type,
+                returned=_optional_str(entry.get("returned")),
+                has_description=_present(entry.get("description")),
+                elements=_optional_str(entry.get("elements")),
+            )
+        )
+
+        contains = entry.get("contains")
+        if contains is None:
+            continue
+        if not isinstance(contains, dict):
+            problems.append(
+                f"{path}: contains must be a mapping, got {_type_name(contains)}"
+            )
+            continue
+        _flatten(contains, f"{path}.", keys, problems)
+
+
+def _present(value: object) -> bool:
+    """Whether a field holds something: a non-empty string or list, or a scalar."""
+    if value is None:
+        return False
+    if isinstance(value, str | list):
+        return bool(value)
+    return True
+
+
+def _optional_str(value: object) -> str | None:
+    return None if value is None else str(value)
+
+
+# --- helpers --------------------------------------------------------------------------
 
 
 class _NotLiteral:
