@@ -1,7 +1,7 @@
 # Research Notes
 
 > **Topic**: How Ansible modules document and produce return values
-> **Last Updated**: 2026-09-27
+> **Last Updated**: 2026-10-01
 
 ## Summary
 
@@ -30,9 +30,19 @@ module's integration tests — reconciled per key. Source: the requirements doc
 - `DOCUMENTATION`, `EXAMPLES`, `RETURN` are YAML strings in module-level variables.
 - `ansible.parsing.plugin_docs.read_docstring(filename)` parses them from `.py`
   and sidecar `.yml` without importing the module.
-- `read_docstring` is expected to give the same empty result for "no `RETURN`"
-  and for a comment-only placeholder (to be verified in Phase 1), so telling
-  `missing` from `placeholder` needs a separate `ast` check for the assignment.
+- Verified against ansible-core 2.21.4 (plan task 10):
+  - `read_docstring(path, verbose=False, ignore_errors=False)` needs an
+    absolute path; with the default `ignore_errors=True` it swallows errors and
+    prints an `[ERROR]` line instead of raising.
+  - It returns `returndocs=None` both for "no `RETURN`" and for a comment-only
+    or empty placeholder, so telling `missing` from `placeholder` needs a
+    separate `ast` check for the assignment.
+  - Any broken docs variable (e.g. invalid `DOCUMENTATION`) raises
+    `AnsibleParserError`, losing a valid `RETURN` too, so the `RETURN` text is
+    re-checked on its own with `ansible.parsing.yaml.loader.AnsibleLoader`.
+  - Only plain `RETURN = ...` assignments count (the last one wins); an
+    annotated `RETURN: str = ...` is ignored, as is a non-literal value.
+  - A scalar `RETURN` (e.g. a bare string) is returned as-is, not rejected.
 - `RETURN` schema (`validate_modules/schema.py`, `return_schema`): each key needs
   `description`, `returned`, `type`; `type` ∈ `bool, complex, dict, float, int,
   list, raw, str`; optional `sample`, `elements`, `contains`, `version_added`,
