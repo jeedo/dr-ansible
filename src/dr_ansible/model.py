@@ -144,6 +144,11 @@ class ModuleInfo:
                 raise ValueError(f"{name} must not be empty")
         _set(self, "aliases", tuple(sorted(set(self.aliases))))
 
+    @property
+    def names(self) -> tuple[str, ...]:
+        """Every name the module answers to: short name, FQCN and aliases."""
+        return tuple(sorted({self.name, self.fqcn, *self.aliases}))
+
     def paths(self) -> dict[str, Path]:
         """The module's known files, by role, omitting the ones it lacks."""
         candidates = {
