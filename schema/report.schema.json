@@ -1,0 +1,219 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/jeedo/dr-ansible/main/schema/report.schema.json",
+  "title": "dr-ansible report",
+  "description": "The JSON report written by dr-ansible's audit and returns commands (--format json). Paths are relative to the project root, or absolute when outside it. Modules are sorted by FQCN and keys by name.",
+  "type": "object",
+  "required": ["schema_version", "modules"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": 1},
+    "modules": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/module"}
+    }
+  },
+  "$defs": {
+    "return_status": {
+      "description": "The module's RETURN status. error and unsupported describe the whole report, not its documentation.",
+      "enum": ["missing", "placeholder", "invalid", "present", "exempt", "error", "unsupported"]
+    },
+    "key_status": {
+      "description": "How a key's documentation compares with the evidence.",
+      "enum": ["ok", "undocumented", "stale", "test-only"]
+    },
+    "return_type": {
+      "description": "A type allowed by validate-modules' return_schema.",
+      "enum": ["bool", "complex", "dict", "float", "int", "list", "raw", "str"]
+    },
+    "outcome": {
+      "description": "Whether the code returns the key on a success or a failure path.",
+      "enum": ["success", "failure"]
+    },
+    "result_state": {
+      "description": "The state of a task result the key was observed in.",
+      "enum": ["ok", "changed", "failed"]
+    },
+    "path": {
+      "description": "A file or directory path.",
+      "type": "string",
+      "minLength": 1
+    },
+    "line": {"type": "integer", "minimum": 1},
+    "count": {"type": "integer", "minimum": 0},
+    "key_path": {
+      "description": "A dotted key path, such as info.size.",
+      "type": "string",
+      "minLength": 1
+    },
+    "nullable_string": {"type": ["string", "null"]},
+    "location": {
+      "type": "object",
+      "required": ["file", "line"],
+      "additionalProperties": false,
+      "properties": {
+        "file": {"$ref": "#/$defs/path"},
+        "line": {"$ref": "#/$defs/line"}
+      }
+    },
+    "module": {
+      "type": "object",
+      "required": [
+        "module",
+        "name",
+        "paths",
+        "return_status",
+        "error",
+        "inherits_from",
+        "counts",
+        "unresolved",
+        "keys"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "module": {
+          "description": "The module's fully qualified collection name.",
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {"type": "string", "minLength": 1},
+        "paths": {
+          "description": "The module's files, by role; roles it lacks are left out.",
+          "type": "object",
+          "required": ["module"],
+          "additionalProperties": false,
+          "properties": {
+            "module": {"$ref": "#/$defs/path"},
+            "sidecar": {"$ref": "#/$defs/path"},
+            "action": {"$ref": "#/$defs/path"},
+            "test_target": {"$ref": "#/$defs/path"}
+          }
+        },
+        "return_status": {"$ref": "#/$defs/return_status"},
+        "error": {
+          "description": "Why the module could not be analysed; null unless return_status is error.",
+          "$ref": "#/$defs/nullable_string"
+        },
+        "inherits_from": {
+          "description": "Modules or action plugins whose returns this module passes on.",
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "counts": {
+          "type": "object",
+          "required": ["documented", "code", "tests", "undocumented", "stale"],
+          "additionalProperties": false,
+          "properties": {
+            "documented": {"$ref": "#/$defs/count"},
+            "code": {"$ref": "#/$defs/count"},
+            "tests": {"$ref": "#/$defs/count"},
+            "undocumented": {"$ref": "#/$defs/count"},
+            "stale": {"$ref": "#/$defs/count"}
+          }
+        },
+        "unresolved": {
+          "description": "Places where static analysis found a key it could not name.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["file", "line", "reason"],
+            "additionalProperties": false,
+            "properties": {
+              "file": {"$ref": "#/$defs/path"},
+              "line": {"$ref": "#/$defs/line"},
+              "reason": {"type": "string", "minLength": 1}
+            }
+          }
+        },
+        "keys": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/key"}
+        }
+      }
+    },
+    "key": {
+      "type": "object",
+      "required": ["name", "status", "documented", "static", "observed"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {"$ref": "#/$defs/key_path"},
+        "status": {"$ref": "#/$defs/key_status"},
+        "documented": {
+          "description": "The key's entry in RETURN, or null if it has none.",
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "required": ["path", "type", "returned", "has_description", "elements"],
+              "additionalProperties": false,
+              "properties": {
+                "path": {"$ref": "#/$defs/key_path"},
+                "type": {
+                  "description": "As written in RETURN, so not necessarily a valid type.",
+                  "$ref": "#/$defs/nullable_string"
+                },
+                "returned": {"$ref": "#/$defs/nullable_string"},
+                "has_description": {"type": "boolean"},
+                "elements": {"$ref": "#/$defs/nullable_string"}
+              }
+            }
+          ]
+        },
+        "static": {
+          "description": "Where module or action plugin code sets the key.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["file", "line", "path", "inferred_type", "outcome", "condition"],
+            "additionalProperties": false,
+            "properties": {
+              "file": {"$ref": "#/$defs/path"},
+              "line": {"$ref": "#/$defs/line"},
+              "path": {"$ref": "#/$defs/key_path"},
+              "inferred_type": {
+                "oneOf": [{"type": "null"}, {"$ref": "#/$defs/return_type"}]
+              },
+              "outcome": {"$ref": "#/$defs/outcome"},
+              "condition": {
+                "description": "The condition guarding the code that sets the key, if any.",
+                "$ref": "#/$defs/nullable_string"
+              }
+            }
+          }
+        },
+        "observed": {
+          "description": "What integration tests saw of the key, or null if they never did.",
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "required": ["count", "types", "results", "sources"],
+              "additionalProperties": false,
+              "properties": {
+                "count": {"type": "integer", "minimum": 1},
+                "types": {
+                  "type": "array",
+                  "items": {"type": "string", "minLength": 1},
+                  "uniqueItems": true
+                },
+                "results": {
+                  "type": "array",
+                  "items": {"$ref": "#/$defs/result_state"},
+                  "uniqueItems": true
+                },
+                "sample": {
+                  "description": "A redacted example value; absent when there is none or it was withheld."
+                },
+                "sources": {
+                  "type": "array",
+                  "items": {"$ref": "#/$defs/location"}
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -35,7 +35,7 @@ Requirement IDs (FR/NFR/AC) refer to [requirements.md](requirements.md).
 ## Phase 3: API / Interface
 
 - [x] 21. `report/`: table output (rich if installed, plain-text fallback), markdown output, and JSON output with `schema_version`
-- [ ] 22. Write `schema/report.schema.json` and validate JSON output against it in tests
+- [x] 22. Write `schema/report.schema.json` and validate JSON output against it in tests
 - [ ] 23. `cli.py`: `audit` command with `--module`, `--status`, `--format`, and exit codes 0/1/2; per-module failures reported as `error` without stopping the run (NFR-8)
 - [ ] 24. `cli.py`: `returns` command with `--include-common` and `--format`
 - [ ] 25. `cli.py`: `draft` command with `--merge` (default), `--full` and `--output <file>` (NFR-5)
