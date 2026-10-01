@@ -4,7 +4,9 @@ Exit codes: ``0`` nothing needs attention, ``1`` findings were reported, ``2``
 a usage error or a project that cannot be read. A module that fails to parse
 is reported with the ``error`` status and does not stop the run (NFR-8).
 
-The ``draft`` subcommand is added in a later plan task.
+Nothing here writes to the analysed tree: reports and drafts go to stdout,
+or to the file named by ``draft --output``, which must lie outside the
+project's module and action plugin directories (NFR-5).
 """
 
 from collections.abc import Sequence
@@ -21,6 +23,7 @@ from dr_ansible.discovery import (
     discover_modules,
     filter_modules,
 )
+from dr_ansible.draft import render_draft, render_merge
 from dr_ansible.model import ModuleInfo, ReturnStatus
 from dr_ansible.pipeline import analyze, has_findings
 from dr_ansible.report import (
@@ -205,3 +208,69 @@ def returns(
         text = keys_table(report, project.root)
     click.echo(text, nl=False)
     _exit(has_findings(report))
+
+
+@main.command()
+@_path_argument
+@click.argument("module")
+@click.option(
+    "--merge/--full",
+    default=True,
+    show_default=True,
+    help="Add only the missing keys to the existing RETURN, or draft it all anew.",
+)
+@click.option(
+    "-o",
+    "--output",
+    type=click.Path(dir_okay=False, path_type=Path),
+    help="Write the draft to this file instead of stdout.",
+)
+@_config_option
+def draft(
+    path: Path,
+    module: str,
+    merge: bool,
+    output: Path | None,
+    config_file: Path | None,
+) -> None:
+    """Print a draft RETURN block for MODULE in PATH.
+
+    Every description is the DR-ANSIBLE-TODO marker for a human to replace.
+    In merge mode (the default) existing entries are kept byte for byte.
+    Module files are never modified.
+    """
+    project, config = _load(path, config_file)
+    if output is not None:
+        _check_output(project, output)
+    selected = _select_one(project, module)
+    result = analyze(selected, config)
+    report = result.report
+    if report.return_status is ReturnStatus.UNSUPPORTED:
+        raise FatalError(f"{report.fqcn}: PowerShell modules are not supported")
+    if report.error is not None or result.docs is None:
+        raise FatalError(f"cannot draft {report.fqcn}: {report.error}")
+
+    if merge:
+        text = render_merge(report, result.docs, config, project.root)
+    else:
+        text = render_draft(report, config, project.root)
+
+    if output is None:
+        click.echo(text, nl=False)
+        return
+    try:
+        output.write_text(text, encoding="utf-8")
+    except OSError as exc:
+        raise FatalError(f"cannot write {output}: {exc.strerror or exc}") from exc
+    click.echo(f"wrote draft for {report.fqcn} to {output}", err=True)
+
+
+def _check_output(project: Project, output: Path) -> None:
+    """Refuse an ``--output`` among the module or action plugin files (NFR-5)."""
+    target = output.resolve()
+    for directory in (project.modules_dir, project.actions_dir):
+        if target.is_relative_to(directory.resolve()):
+            raise FatalError(
+                f"refusing to write {output}: it is inside {directory}, and"
+                " dr-ansible never modifies module or plugin files"
+            )
