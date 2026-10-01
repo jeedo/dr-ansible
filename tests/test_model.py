@@ -390,3 +390,19 @@ def test_inherits_from_defaults_to_nothing() -> None:
         ModuleReport(module=_info(), return_status=ReturnStatus.MISSING).inherits_from
         == ()
     )
+
+
+def test_samples_compare_and_hash_by_their_json_form() -> None:
+    assert Sample([1, {"a": 2}]) == Sample([1, {"a": 2}])
+    assert hash(Sample([1, {"a": 2}])) == hash(Sample([1, {"a": 2}]))
+    assert Sample({"b": 1, "a": 2}) == Sample({"a": 2, "b": 1})
+    assert Sample(1) != Sample(True)
+    assert Sample(1) != Sample(1.0)
+    assert len({Sample([1]), Sample([1]), Sample(None)}) == 2
+
+
+def test_static_key_can_carry_a_literal_sample() -> None:
+    key = dataclasses.replace(_static(), literal=Sample(["a", "b"]))
+    assert key.literal == Sample(["a", "b"])
+    assert _static().literal is None
+    assert len({key, dataclasses.replace(_static(), literal=Sample(["a", "b"]))}) == 1
