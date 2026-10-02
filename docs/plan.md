@@ -45,7 +45,7 @@ Requirement IDs (FR/NFR/AC) refer to [requirements.md](requirements.md).
 ## Phase 4: Testing & QA
 
 - [x] 28. Safety test: audit the raise-on-import fixture and assert nothing is imported or executed without `--run` (AC-10)
-- [ ] 29. Acceptance harness: fetch a pinned ansible-core devel checkout into a cache directory; tests marked `acceptance`
+- [x] 29. Acceptance harness: fetch a pinned ansible-core devel checkout into a cache directory; tests marked `acceptance`
 - [ ] 30. Acceptance tests for `audit`: AC-1 missing list, AC-2 placeholder list, AC-3 exempt list
 - [ ] 31. Acceptance tests for `returns`: `fetch` keys and line numbers (AC-4), `fetch` test mining (AC-5), `stat` nested keys (AC-6), `copy` inheritance (AC-7)
 - [ ] 32. Acceptance test for drafts: paste each AC-1 draft into the checkout and run `ansible-test sanity --test validate-modules` (AC-8)
