@@ -211,11 +211,11 @@ class Tracer:
         ):
             return
         info = self._info(target.value.id)
-        key = _constant_key(target.slice)
-        if key is None:
+        keys = self._keys(target.slice, stmt)
+        if keys is None:
             info.computed.append(target.lineno)
         else:
-            info.entries.append(_Entry(key, value, target.lineno, stmt))
+            info.entries.extend(_Entry(k, value, target.lineno, stmt) for k in keys)
 
     def _index_method_call(self, call: ast.Call) -> None:
         func = call.func
@@ -231,12 +231,19 @@ class Tracer:
                     info.entries.append(_Entry(k.arg, k.value, k.lineno, call))
         elif func.attr == "setdefault" and call.args:
             info = self._info(func.value.id)
-            key = _constant_key(call.args[0])
-            if key is None:
+            keys = self._keys(call.args[0], call)
+            if keys is None:
                 info.computed.append(call.lineno)
             else:
                 default = call.args[1] if len(call.args) > 1 else None
-                info.entries.append(_Entry(key, default, call.lineno, call))
+                info.entries.extend(_Entry(k, default, call.lineno, call) for k in keys)
+
+    def _keys(self, node: ast.expr, where: ast.AST) -> list[str] | None:
+        """The key ``node`` names: a constant, or each item of a literal loop."""
+        key = _constant_key(node)
+        if key is not None:
+            return [key]
+        return _loop_keys(node, where, self._a.parents, self._scope)
 
     # -- the entry point: an exit_json / fail_json call -------------------------------
 
@@ -597,6 +604,98 @@ def _is_dict_literal(value: ast.expr) -> bool:
         and isinstance(value.func, ast.Name)
         and value.func.id == "dict"
     )
+
+
+def _loop_keys(
+    node: ast.expr, where: ast.AST, parents: dict[ast.AST, ast.AST], scope: ast.AST
+) -> list[str] | None:
+    """Keys named by a loop variable over a literal sequence, or ``None``.
+
+    Handles ``for k in ['a', 'b']: d[k]``, ``for p in [('a', x), ...]: d[p[0]]``
+    and ``for k, v in [('a', x), ...]: d[k]``. Every item must give a usable
+    string key, and the loop body must not rebind the variable; anything less
+    certain is left as a computed key (FR-12).
+    """
+    index: int | None = None
+    if isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Constant):
+        if not isinstance(node.slice.value, int) or isinstance(node.slice.value, bool):
+            return None
+        index, node = node.slice.value, node.value
+    if not isinstance(node, ast.Name):
+        return None
+    loop = _enclosing_loop(node.id, where, parents, scope)
+    if loop is None or not isinstance(loop.iter, (ast.List, ast.Tuple, ast.Set)):
+        return None
+    position = _target_position(loop.target, node.id)
+    width = (
+        len(loop.target.elts) if isinstance(loop.target, ast.Tuple | ast.List) else 0
+    )
+    keys: list[str] = []
+    for item in loop.iter.elts:
+        value: ast.expr | None = item
+        if position is not None:
+            value = _element(item, position, width)
+        if index is not None and value is not None:
+            value = _element(value, index)
+        key = _constant_key(value) if value is not None else None
+        if key is None:
+            return None
+        if key not in keys:
+            keys.append(key)
+    return keys
+
+
+def _enclosing_loop(
+    name: str, where: ast.AST, parents: dict[ast.AST, ast.AST], scope: ast.AST
+) -> ast.For | None:
+    """The innermost ``for`` around ``where`` (within ``scope``) that binds ``name``."""
+    node = parents.get(where)
+    while node is not None and node is not scope and not isinstance(node, _FUNCTIONS):
+        if isinstance(node, ast.For) and _binds(node.target, name):
+            return None if _rebound(node, name) else node
+        node = parents.get(node)
+    return None
+
+
+def _binds(target: ast.expr, name: str) -> bool:
+    if isinstance(target, ast.Name):
+        return target.id == name
+    if isinstance(target, (ast.Tuple, ast.List)):
+        return any(isinstance(e, ast.Name) and e.id == name for e in target.elts)
+    return False
+
+
+def _target_position(target: ast.expr, name: str) -> int | None:
+    """Where ``name`` sits in an unpacking target; ``None`` for a plain name."""
+    if isinstance(target, (ast.Tuple, ast.List)):
+        for position, element in enumerate(target.elts):
+            if isinstance(element, ast.Name) and element.id == name:
+                return position
+    return None
+
+
+def _rebound(loop: ast.For, name: str) -> bool:
+    """Whether the loop body (or else clause) assigns ``name`` again."""
+    for statement in [*loop.body, *loop.orelse]:
+        for node in ast.walk(statement):
+            if (
+                isinstance(node, ast.Name)
+                and isinstance(node.ctx, ast.Store)
+                and node.id == name
+            ):
+                return True
+    return False
+
+
+def _element(value: ast.expr, index: int, length: int | None = None) -> ast.expr | None:
+    """Item ``index`` of a literal tuple or list (of exactly ``length`` items)."""
+    if not isinstance(value, (ast.Tuple, ast.List)):
+        return None
+    if length is not None and len(value.elts) != length:
+        return None
+    if not 0 <= index < len(value.elts):
+        return None
+    return value.elts[index]
 
 
 def _constant_key(node: ast.expr) -> str | None:
