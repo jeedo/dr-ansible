@@ -1,0 +1,25 @@
+# Dependabot version updates (plan task 36), as in jeedo/oneshot. Weekly per ecosystem, and each entry
+# groups only minor and patch bumps into one PR so routine updates arrive as a batch; "major" is
+# deliberately absent from every group, so a breaking bump always gets its own PR for manual review.
+# ci.yml runs on every pull request to main, so a Dependabot PR is gated like a human's. Security
+# updates and branch protection are repository settings, not files: see docs/repository-settings.md.
+# There is no auto-merge; a person reviews and approves.
+version: 2
+updates:
+  # pyproject.toml and uv.lock.
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      uv-minor-patch:
+        update-types: ["minor", "patch"]
+
+  # The SHA-pinned actions in .github/workflows/.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      github-actions-minor-patch:
+        update-types: ["minor", "patch"]
