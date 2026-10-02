@@ -121,6 +121,13 @@ Package layout (`src/dr_ansible/`):
   - `runtime.py` — only with `--run`: runs
     `ansible-test integration <target> --docker <image>` (or `--local` if given)
     as a subprocess, with the bundled callback enabled, then reads its JSON.
+    ansible-test replaces the environment, config file and enabled callbacks of
+    the Ansible processes it starts, so the project is first copied to a
+    temporary directory (the analysed tree is never touched, NFR-5); the copy
+    gets a self-enabling copy of the callback and an `integration.cfg` that
+    names its plugin directory and output file relative to `$JUNIT_OUTPUT_DIR`,
+    which ansible-test sets to its results directory, locally and in the
+    container alike. The recording is read back from that results directory.
   - `callback/dr_ansible_recorder.py` — Ansible callback plugin shipped as package
     data; records, for each result of the module under test, its keys, Python
     types, result state (`ok`/`changed`/`failed`) and truncated values. Skips

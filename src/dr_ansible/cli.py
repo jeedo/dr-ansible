@@ -4,13 +4,15 @@ Exit codes: ``0`` nothing needs attention, ``1`` findings were reported, ``2``
 a usage error or a project that cannot be read. A module that fails to parse
 is reported with the ``error`` status and does not stop the run (NFR-8).
 
-Nothing here writes to the analysed tree: reports and drafts go to stdout,
+Nothing runs unless ``--run`` is given (see :mod:`dr_ansible.mining.runtime`),
+and nothing here writes to the analysed tree: reports and drafts go to stdout,
 or to the file named by ``draft --output``, which must lie outside the
 project's module and action plugin directories (NFR-5).
 """
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -24,7 +26,8 @@ from dr_ansible.discovery import (
     filter_modules,
 )
 from dr_ansible.draft import render_draft, render_merge
-from dr_ansible.model import ModuleInfo, ReturnStatus
+from dr_ansible.mining import runtime
+from dr_ansible.model import ModuleInfo, Observation, ReturnStatus
 from dr_ansible.pipeline import analyze, has_findings
 from dr_ansible.report import (
     audit_markdown,
@@ -120,6 +123,75 @@ _format_option = click.option(
 )
 
 
+def _run_options(command: Callable[..., Any]) -> Callable[..., Any]:
+    """``--run``, ``--docker`` and ``--local``, for ``returns`` and ``draft``."""
+    command = click.option(
+        "--local",
+        is_flag=True,
+        help="With --run: run ansible-test on this machine instead of in a container.",
+    )(command)
+    command = click.option(
+        "--docker",
+        "docker_image",
+        metavar="IMAGE",
+        help="With --run: the ansible-test container [default: docker-image setting].",
+    )(command)
+    return click.option(
+        "--run",
+        is_flag=True,
+        help="Also run the module's integration target to record its returns.",
+    )(command)
+
+
+def _check_run_options(run: bool, docker_image: str | None, local: bool) -> None:
+    if not run and docker_image is not None:
+        raise click.UsageError("--docker needs --run")
+    if not run and local:
+        raise click.UsageError("--local needs --run")
+    if docker_image is not None and local:
+        raise click.UsageError("--docker and --local cannot be used together")
+
+
+def _plural(count: int, noun: str) -> str:
+    return f"{count} {noun}" if count == 1 else f"{count} {noun}s"
+
+
+def _runtime_observations(
+    project: Project,
+    module: ModuleInfo,
+    config: Config,
+    *,
+    run: bool,
+    docker_image: str | None,
+    local: bool,
+) -> tuple[Observation, ...]:
+    """Observations from running the integration target, only with ``--run``."""
+    if not run:
+        return ()
+    image = None if local else docker_image or config.docker_image
+    try:
+        result = runtime.run_integration(project, module, config, docker_image=image)
+    except runtime.RunError as exc:
+        raise FatalError(str(exc)) from exc
+    recorded = _plural(result.records, "result")
+    if result.returncode != 0:
+        if not result.records:
+            code = result.returncode
+            raise FatalError(
+                f"ansible-test failed (exit code {code}) and recorded nothing"
+            )
+        click.echo(
+            f"warning: ansible-test failed (exit code {result.returncode});"
+            f" using the {recorded} it recorded",
+            err=True,
+        )
+    else:
+        click.echo(f"ansible-test recorded {recorded} of {module.fqcn}", err=True)
+    for problem in result.problems:
+        click.echo(f"warning: {problem}", err=True)
+    return result.observations
+
+
 @main.command()
 @_path_argument
 @click.option(
@@ -182,23 +254,35 @@ def audit(
     is_flag=True,
     help="Also show common return values such as changed, failed and msg.",
 )
+@_run_options
 @_format_option
 @_config_option
 def returns(
     path: Path,
     module: str,
     include_common: bool,
+    run: bool,
+    docker_image: str | None,
+    local: bool,
     output_format: str,
     config_file: Path | None,
 ) -> None:
     """Show each return key of MODULE in PATH, with its evidence and status.
 
     MODULE is a name, alias or FQCN, or a glob matching exactly one module.
-    Exits 1 if the module has findings, as for audit.
+    Exits 1 if the module has findings, as for audit. With --run, the
+    module's integration target is run with ansible-test, in a container by
+    default, to record what the module returns.
     """
+    _check_run_options(run, docker_image, local)
     project, config = _load(path, config_file)
     selected = _select_one(project, module)
-    report = analyze(selected, config, include_common=include_common).report
+    observations = _runtime_observations(
+        project, selected, config, run=run, docker_image=docker_image, local=local
+    )
+    report = analyze(
+        selected, config, include_common=include_common, observations=observations
+    ).report
 
     if output_format == "json":
         text = reports_to_json([report], project.root, config)
@@ -225,25 +309,34 @@ def returns(
     type=click.Path(dir_okay=False, path_type=Path),
     help="Write the draft to this file instead of stdout.",
 )
+@_run_options
 @_config_option
 def draft(
     path: Path,
     module: str,
     merge: bool,
     output: Path | None,
+    run: bool,
+    docker_image: str | None,
+    local: bool,
     config_file: Path | None,
 ) -> None:
     """Print a draft RETURN block for MODULE in PATH.
 
     Every description is the DR-ANSIBLE-TODO marker for a human to replace.
     In merge mode (the default) existing entries are kept byte for byte.
-    Module files are never modified.
+    Module files are never modified. With --run, types and samples come
+    from running the module's integration target first.
     """
+    _check_run_options(run, docker_image, local)
     project, config = _load(path, config_file)
     if output is not None:
         _check_output(project, output)
     selected = _select_one(project, module)
-    result = analyze(selected, config)
+    observations = _runtime_observations(
+        project, selected, config, run=run, docker_image=docker_image, local=local
+    )
+    result = analyze(selected, config, observations=observations)
     report = result.report
     if report.return_status is ReturnStatus.UNSUPPORTED:
         raise FatalError(f"{report.fqcn}: PowerShell modules are not supported")
