@@ -49,7 +49,7 @@ Requirement IDs (FR/NFR/AC) refer to [requirements.md](requirements.md).
 - [x] 30. Acceptance tests for `audit`: AC-1 missing list, AC-2 placeholder list, AC-3 exempt list
 - [x] 31. Acceptance tests for `returns`: `fetch` keys and line numbers (AC-4), `fetch` test mining (AC-5), `stat` nested keys (AC-6), `copy` inheritance (AC-7)
 - [x] 32. Acceptance test for drafts: paste each AC-1 draft into the checkout and run `ansible-test sanity --test validate-modules` (AC-8)
-- [ ] 33. Runtime acceptance test (marked `runtime`, needs Docker): `--run` on `ping` records `ping` as `str` with sample `pong` (AC-11); redaction check (AC-12)
+- [x] 33. Runtime acceptance test (marked `runtime`, needs Docker): `--run` on `ping` records `ping` as `str` with sample `pong` (AC-11); redaction check (AC-12)
 - [ ] 34. Performance check: full static `audit` of ansible-core in under 10 seconds (NFR-7); determinism check that two runs produce identical output (NFR-6)
 
 ## Phase 5: CI/CD & Deployment

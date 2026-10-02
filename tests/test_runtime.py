@@ -4,6 +4,7 @@ import configparser
 import hashlib
 import json
 import shutil
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -341,6 +342,34 @@ def test_ansible_core_uses_its_own_ansible_test(tmp_path: Path) -> None:
     (copy / "bin").mkdir(parents=True)
     (copy / "bin" / "ansible-test").write_text("#!/bin/sh\n")
     assert runtime.find_ansible_test(copy) == str(copy / "bin" / "ansible-test")
+
+
+def test_the_checkouts_ansible_test_runs_with_this_python(tmp_path: Path) -> None:
+    # Its shebang is `#!/usr/bin/env python`, which may find an older Python
+    # than ansible-core devel supports; dr-ansible's own Python always fits.
+    root = tmp_path / "core"
+    shutil.copytree(CORE, root)
+    (root / "bin").mkdir()
+    (root / "bin" / "ansible-test").write_text("#!/usr/bin/env python\n")
+    project, module = _module(root, "incremental")
+    fake = _FakeAnsibleTest([])
+    run_integration(project, module, Config(), docker_image="default", runner=fake)
+    ((command, cwd),) = fake.calls
+    assert command[:3] == [
+        sys.executable,
+        str(cwd / "bin" / "ansible-test"),
+        "integration",
+    ]
+
+
+def test_an_installed_ansible_test_runs_as_it_is(tmp_path: Path) -> None:
+    project, module = _module(_collection(tmp_path), "thing")
+    fake = _FakeAnsibleTest([])
+    run_integration(
+        project, module, Config(), docker_image=None, runner=fake, ansible_test="/x/at"
+    )
+    ((command, _),) = fake.calls
+    assert command[:2] == ["/x/at", "integration"]
 
 
 # --- the CLI ------------------------------------------------------------------------
