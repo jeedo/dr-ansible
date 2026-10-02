@@ -155,7 +155,9 @@ Package layout (`src/dr_ansible/`):
 
 Safety boundaries (NFR-5): no code path writes to the analysed tree; the only
 file write is `--output <file>`; the only process spawn is in `mining/runtime.py`,
-reached only via `--run`.
+reached only via `--run`. (Importing ansible-core itself runs `ldconfig -p` through
+`ctypes.util.find_library`, a shared-library lookup that executes nothing from the
+analysed tree.) `tests/test_safety.py` checks all of this with Python audit hooks.
 
 ## Data Model / API
 
