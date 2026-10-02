@@ -2,12 +2,14 @@
 
 Each test runs in two modes: ``--local`` (ansible-test on this machine) and
 ``--docker default`` (the default, in ansible-test's container). The Docker
-mode is skipped when Docker is not available. These tests start real
+mode is skipped when Docker is not available, unless DR_ANSIBLE_REQUIRE_DOCKER is
+set (as in the runtime CI workflow), which makes it fail instead. These tests start real
 ``ansible-test integration`` runs, so they are marked ``runtime`` as well as
 ``acceptance``: ``uv run pytest -m runtime``.
 """
 
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -34,6 +36,10 @@ def mode(request: pytest.FixtureRequest) -> list[str]:
         pytest.skip("ansible-test needs ssh-keygen")
     if request.param == "docker":
         if not _docker_available():
+            if os.environ.get("DR_ANSIBLE_REQUIRE_DOCKER"):
+                pytest.fail(
+                    "DR_ANSIBLE_REQUIRE_DOCKER is set but Docker is not available"
+                )
             pytest.skip("Docker is not available")
         return ["--run", "--docker", "default"]
     return ["--run", "--local"]

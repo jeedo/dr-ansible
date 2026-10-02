@@ -54,3 +54,39 @@ jobs:
 
       - name: Check docs
         run: uv run python scripts/check_docs.py
+
+  acceptance:
+    # Against a pinned ansible-core devel checkout (tests/acceptance/checkout.py):
+    # AC-1 to AC-10, validate-modules on drafts (AC-8), NFR-6 and NFR-7.
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.19"
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install dependencies
+        run: uv sync --locked --group dev
+
+      - name: Cache the ansible-core checkout
+        # Keyed on the file that holds the pin, so a new pin fetches afresh.
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/dr-ansible
+          key: ansible-core-${{ hashFiles('tests/acceptance/checkout.py') }}
+
+      - name: Fetch the ansible-core checkout
+        run: uv run python -m tests.acceptance.checkout
+
+      - name: Acceptance tests
+        # Runtime tests run ansible-test integration; they have their own workflow.
+        run: uv run pytest -m "acceptance and not runtime"
