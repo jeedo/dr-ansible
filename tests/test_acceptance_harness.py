@@ -184,7 +184,11 @@ def test_every_acceptance_module_is_marked() -> None:
             if isinstance(node, ast.Assign)
             and any(getattr(t, "id", None) == "pytestmark" for t in node.targets)
         ]
-        assert marks == ["pytest.mark.acceptance"], module.name
+        assert len(marks) == 1, module.name
+        assert marks[0] in {
+            "pytest.mark.acceptance",
+            "[pytest.mark.acceptance, pytest.mark.runtime]",
+        }, module.name
 
 
 def test_acceptance_tests_are_skipped_by_default() -> None:

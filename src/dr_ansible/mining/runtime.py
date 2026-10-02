@@ -94,6 +94,10 @@ def run_integration(
             raise RunError("ansible-test not found: install ansible-core to use --run")
         assert module.test_target is not None  # checked by prepare_copy
         command = build_command(program, module.test_target.name, docker_image)
+        if Path(program) == copy / "bin" / "ansible-test":
+            # The checkout's script starts `#!/usr/bin/env python`, which may
+            # find a Python older than ansible-core devel supports; this one fits.
+            command = [sys.executable, *command]
         returncode = (runner or default_runner)(command, copy)
         recording = copy / RESULTS_DIRS[project.layout] / "data" / RECORDING_NAME
         records, problems = _read_records(recording)
