@@ -432,3 +432,69 @@ def test_paths_outside_the_root_stay_absolute() -> None:
     )
     (module,) = _json([report])["modules"]
     assert module["paths"]["module"] == "/elsewhere/x.py"
+
+
+# --- rich tables fit the terminal without losing cells ------------------------------
+
+
+def _long_code_report() -> ModuleReport:
+    static = (
+        *(
+            _static("dest", line, inferred_type=ReturnType.STR)
+            for line in (101, 202, 303, 404, 505, 606, 707, 808)
+        ),
+        _static("dest", 9, "copy"),
+    )
+    return ModuleReport(
+        module=_info("fetch"),
+        return_status=ReturnStatus.PRESENT,
+        keys=(
+            KeyReport(
+                name="dest",
+                status=KeyStatus.UNDOCUMENTED,
+                static=static,
+                observed=Observation(path="dest", count=12345),
+            ),
+            KeyReport(
+                name="old",
+                status=KeyStatus.STALE,
+                documented=DocumentedKey(path="old", type="complex"),
+            ),
+        ),
+    )
+
+
+@pytest.mark.parametrize("width", [60, 80, 120])
+def test_rich_keys_table_never_truncates_cells(width: int) -> None:
+    pytest.importorskip("rich")
+    table = keys_table(_long_code_report(), ROOT, use_rich=True, width=width)
+    assert "…" not in table
+    for cell in ("undocumented", "12345", "complex", "stale"):
+        assert cell in table
+    lines = table.splitlines()
+    assert all(len(line) <= width for line in lines)
+    # Reassemble the CODE column from the text under its header.
+    header = next(line for line in lines if line.startswith("KEY"))
+    start, end = header.index("CODE"), header.index("TESTS")
+    code = "".join(line[start:end].strip() for line in lines[lines.index(header) + 1 :])
+    assert code.startswith(
+        "lib/ansible/modules/copy.py:9,"
+        "lib/ansible/modules/fetch.py:101,202,303,404,505,606,707,808"
+    )
+
+
+def test_rich_audit_table_never_truncates_cells() -> None:
+    pytest.importorskip("rich")
+    table = audit_table(_reports(), use_rich=True, width=50)
+    assert "…" not in table
+    assert "ansible.builtin.broken" in table
+
+
+def test_rich_tables_default_to_the_terminal_width(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pytest.importorskip("rich")
+    monkeypatch.setenv("COLUMNS", "70")
+    table = keys_table(_long_code_report(), ROOT, use_rich=True)
+    assert all(len(line) <= 70 for line in table.splitlines())
+    assert "…" not in table
