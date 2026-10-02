@@ -64,12 +64,16 @@ options:
 
 import json
 import math
+import os
 import re
 from collections.abc import Iterable, Mapping
 from typing import Any
 
 from ansible.plugins.callback import CallbackBase
 
+#: Whether the plugin runs without being enabled by name. ``--run`` turns this on
+#: in its private copy, because ansible-test overrides the enabled callbacks.
+AUTO_ENABLE = False
 #: Version of the JSON line format.
 RECORD_VERSION = 1
 #: Replaces the value of a sensitive key nested inside a value.
@@ -153,7 +157,7 @@ class CallbackModule(CallbackBase):  # type: ignore[misc]  # ansible is untyped
     CALLBACK_VERSION = 2.0
     CALLBACK_TYPE = "aggregate"
     CALLBACK_NAME = "dr_ansible_recorder"
-    CALLBACK_NEEDS_ENABLED = True
+    CALLBACK_NEEDS_ENABLED = not AUTO_ENABLE
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -177,7 +181,11 @@ class CallbackModule(CallbackBase):  # type: ignore[misc]  # ansible is untyped
         module_names: Iterable[str],
         redact_patterns: Iterable[str],
     ) -> None:
-        self._output = output
+        # ansible-test replaces the environment but sets JUNIT_OUTPUT_DIR, so
+        # --run names the output relative to it.
+        self._output = os.path.expanduser(os.path.expandvars(output)) if output else ""
+        if self._output:
+            os.makedirs(os.path.dirname(self._output) or ".", exist_ok=True)
         self._names = frozenset(n.strip() for n in module_names if n.strip())
         self._patterns = compile_patterns(p for p in redact_patterns if p)
         self.disabled = not output

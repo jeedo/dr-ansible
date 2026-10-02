@@ -393,3 +393,27 @@ def test_real_playbook_run(tmp_path: Path) -> None:
     assert records[0]["location"]["file"] == str(tmp_path / "play.yml")
     assert records[0]["location"]["line"] == 4
     assert "very-private-value" not in output.read_text()  # AC-12
+
+
+# --- what --run relies on (plan task 27) --------------------------------------------
+
+
+def test_output_path_expands_environment_variables(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # ansible-test replaces the whole environment, so --run points the output at
+    # $JUNIT_OUTPUT_DIR, which ansible-test sets inside its container too.
+    monkeypatch.setenv("JUNIT_OUTPUT_DIR", str(tmp_path / "results" / "junit"))
+    callback = recorder.CallbackModule()
+    callback.configure(
+        output="$JUNIT_OUTPUT_DIR/../data/rec.jsonl",
+        module_names=[],
+        redact_patterns=[],
+    )
+    callback.v2_runner_on_ok(_result(_Task("ping"), {"ping": "a"}))
+    assert (tmp_path / "results" / "data" / "rec.jsonl").is_file()
+
+
+def test_the_shipped_callback_must_be_enabled_by_name() -> None:
+    assert recorder.AUTO_ENABLE is False
+    assert recorder.CallbackModule.CALLBACK_NEEDS_ENABLED is True
