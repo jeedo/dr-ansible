@@ -54,6 +54,10 @@ select = [
     "PT",  # flake8-pytest-style
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# Ansible plugins declare DOCUMENTATION before their imports.
+"src/dr_ansible/mining/callback/dr_ansible_recorder.py" = ["E402"]
+
 [tool.mypy]
 python_version = "3.13"
 strict = true
