@@ -4,7 +4,7 @@ Documentation help for Ansible: find modules with missing or incomplete
 `RETURN` documentation, work out which keys they actually return, and print a
 draft `RETURN` block for a human to finish.
 
-> **Status**: design phase — no code yet. See the docs below.
+> **Status**: alpha. The `audit`, `returns` and `draft` commands work; see the docs below.
 
 - [Requirements](docs/requirements.md)
 - [Architecture](docs/architecture.md) (approved)
