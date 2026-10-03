@@ -53,3 +53,25 @@ The pending publishers turn into normal ones when the first release creates the 
 
 A failed run publishes nothing after the failing step. PyPI never accepts the same version
 twice, so to retry after a PyPI upload, bump the version and tag again.
+
+## Checking a release
+
+Once it is on PyPI, check that every install path gives a working `dr-ansible` (NFR-2). Use
+Python 3.13 and a throwaway directory; `PATH_TO_ANSIBLE` is any ansible-core checkout.
+
+```bash
+V=0.2.0   # the version just released
+uvx dr-ansible@$V --version
+uv tool install dr-ansible==$V && dr-ansible --version
+pipx install dr-ansible==$V && dr-ansible --version
+python3.13 -m venv venv && venv/bin/pip install "dr-ansible[rich]==$V" && venv/bin/dr-ansible --version
+uvx --from git+https://github.com/jeedo/dr-ansible dr-ansible --version
+git clone https://github.com/jeedo/dr-ansible && cd dr-ansible && uv sync && uv run dr-ansible --version
+pip install -e .   # in the clone, inside a Python 3.13 virtual environment
+```
+
+Each should print the new version, and `dr-ansible audit PATH_TO_ANSIBLE --module ping,fetch`
+should list both modules and exit with 1 (fetch has no `RETURN`). On Python 3.12 or older, pip
+refuses to install it (`Requires-Python >=3.13`).
+
+v0.2.0 was checked this way on 2026-10-03: all the paths above worked.
