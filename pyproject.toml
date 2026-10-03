@@ -6,11 +6,41 @@ readme = "README.md"
 license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 requires-python = ">=3.13"
+keywords = [
+    "ansible",
+    "ansible-core",
+    "documentation",
+    "return-values",
+    "modules",
+    "validate-modules",
+    "static-analysis",
+]
+# No License :: classifier: the license expression above replaces it (PEP 639).
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Framework :: Ansible",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Documentation",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: System :: Systems Administration",
+    "Typing :: Typed",
+]
 dependencies = [
     "ansible-core>=2.21.4",
     "click>=8.5.0",
     "pyyaml>=6.0.3",
 ]
+
+[project.urls]
+Homepage = "https://github.com/jeedo/dr-ansible"
+Repository = "https://github.com/jeedo/dr-ansible"
+Issues = "https://github.com/jeedo/dr-ansible/issues"
 
 [project.scripts]
 dr-ansible = "dr_ansible.cli:main"
