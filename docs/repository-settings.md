@@ -27,6 +27,11 @@ CI (`.github/workflows/ci.yml`) runs on every pull request, Dependabot's include
 The runtime tests (`.github/workflows/runtime.yml`) run on demand and weekly, not on pull requests, so
 they are not a required check.
 
+## Releases
+
+Publishing to PyPI needs trusted publishers on PyPI and TestPyPI and two GitHub
+environments, `pypi` and `testpypi`: see [releasing.md](releasing.md).
+
 ## No auto-merge
 
 Leave auto-merge off. Dependabot pull requests pass the same checks as anyone's and still need a human
