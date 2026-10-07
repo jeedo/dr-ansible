@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from ansible.utils.display import Display
 
 from dr_ansible.config import Config
 from dr_ansible.discovery import detect_project, discover_modules
@@ -119,6 +120,25 @@ def test_audit_prints_nothing(capsys: pytest.CaptureFixture[str]) -> None:
         if module.language is Language.PYTHON:
             audit_docs(module, Config())
     assert capsys.readouterr() == ("", "")
+
+
+def test_ansible_docs_parser_warnings_are_silenced(
+    tmp_path: Path, capfd: pytest.CaptureFixture[str]
+) -> None:
+    # ansible-core's read_docstring warns through Display when a module-level
+    # assignment target has no name, such as a tuple (issue #40).
+    module = _tmp_module(tmp_path, "a, b = 1, 2\n" + VALID_RETURN)
+    result = audit_docs(module, Config())
+    assert result.status is ReturnStatus.PRESENT
+    assert capfd.readouterr() == ("", "")
+
+
+def test_display_warnings_outside_the_docs_parser_still_show(
+    tmp_path: Path, capfd: pytest.CaptureFixture[str]
+) -> None:
+    audit_docs(_tmp_module(tmp_path, "a, b = 1, 2\n" + VALID_RETURN), Config())
+    Display().warning("dr-ansible issue 40 check")
+    assert "dr-ansible issue 40 check" in capfd.readouterr().err
 
 
 # --- exemption (FR-6) --------------------------------------------------------------

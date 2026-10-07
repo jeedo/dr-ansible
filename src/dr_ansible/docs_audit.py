@@ -14,6 +14,8 @@ problems.
 """
 
 import ast
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -21,6 +23,7 @@ import yaml
 from ansible.errors import AnsibleParserError
 from ansible.parsing.plugin_docs import read_docstring
 from ansible.parsing.yaml.loader import AnsibleLoader
+from ansible.utils.display import Display
 
 from dr_ansible.config import Config
 from dr_ansible.model import (
@@ -273,8 +276,29 @@ def _has_annotated_return(tree: ast.Module) -> bool:
 
 
 def _read_docstring(path: Path) -> object:
-    docs = read_docstring(str(path.resolve()), verbose=False, ignore_errors=False)
+    with _quiet_display():
+        docs = read_docstring(str(path.resolve()), verbose=False, ignore_errors=False)
     return docs.get("returndocs")
+
+
+@contextmanager
+def _quiet_display() -> Iterator[None]:
+    """Drop the warnings ansible-core's docs parser prints through ``Display``.
+
+    They are noise for dr-ansible's users: anything that matters for a module's
+    docs is reported in ``DocResult.problems`` instead. ``Display`` is a singleton,
+    so the instance attributes shadow its methods only until they are deleted.
+    """
+    display = Display()
+    display.warning = display.deprecated = _ignore
+    try:
+        yield
+    finally:
+        del display.warning, display.deprecated
+
+
+def _ignore(*args: object, **kwargs: object) -> None:
+    pass
 
 
 def _load_yaml(text: str) -> object:
